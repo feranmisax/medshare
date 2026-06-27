@@ -1,0 +1,18 @@
+# Secrets & local config
+.env
+.streamlit/secrets.toml
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Data & models (regenerated, not committed)
+data/*.xlsx
+data/*.csv
+models/*.joblib
+
+# OS
+.DS_Store
+Thumbs.db

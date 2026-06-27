@@ -1,0 +1,168 @@
+// ============================================================
+// Inter-Pharmacy Redistribution — database schema (DBML)
+// Paste this whole file into https://dbdiagram.io  (new diagram).
+// Then drag the boxes into a tidy layout and Export > PNG/PDF.
+//
+// Colour key (header colours):
+//   BLUE   = dimension tables (descriptive: who / what)
+//   GREEN  = primary fact table (high-volume measured events)
+//   TEAL   = core transactional data
+//   ORANGE = model-output tables (the 3 models write here)
+//   PURPLE = coordination / workflow tables
+// ============================================================
+
+// ---------- DIMENSIONS ----------
+Table pharmacies [headercolor: #2563EB] {
+  pharmacy_id   text [pk]
+  name          text [not null]
+  pharmacy_type text [not null]
+  area          text
+  landmark      text
+  latitude      double
+  longitude     double
+  willing_receive text
+  willing_release text
+  travel_km_max double
+  is_synthetic  boolean [not null, default: true]
+  created_at    timestamp [not null]
+  Note: 'Dimension: the network nodes (one row per pharmacy).'
+}
+
+Table drugs [headercolor: #2563EB] {
+  drug_id   integer [pk, increment]
+  name      text [not null]
+  category  text [not null]
+  pack_size integer
+  unit      text
+  indexes { (name, category) [unique] }
+  Note: 'Dimension: the drug catalogue.'
+}
+
+// ---------- PRIMARY FACT ----------
+Table sales_daily [headercolor: #16A34A] {
+  id          bigint [pk, increment]
+  pharmacy_id text [not null, ref: > pharmacies.pharmacy_id]
+  drug_id     integer [not null, ref: > drugs.drug_id]
+  sale_date   date [not null]
+  units_sold  integer [not null]
+  indexes { (pharmacy_id, drug_id, sale_date) [unique] }
+  Note: 'PRIMARY FACT TABLE: measured demand events (units sold per pharmacy/drug/day).'
+}
+
+// ---------- CORE TRANSACTIONAL ----------
+Table inventory_batches [headercolor: #0D9488] {
+  batch_id        bigint [pk, increment]
+  pharmacy_id     text [not null, ref: > pharmacies.pharmacy_id]
+  drug_id         integer [not null, ref: > drugs.drug_id]
+  quantity        integer [not null]
+  unit_cost       "numeric(12,2)"
+  unit_price      "numeric(12,2)"
+  manufacture_date date
+  expiry_date     date [not null]
+  received_date   date [not null]
+  is_synthetic    boolean [not null, default: true]
+  Note: 'Batch-level stock: the unit of analysis for expiry risk.'
+}
+
+// ---------- MODEL OUTPUTS ----------
+Table expiry_risk_scores [headercolor: #EA580C] {
+  id               bigint [pk, increment]
+  batch_id         bigint [not null, ref: > inventory_batches.batch_id]
+  score_date       date [not null]
+  risk_probability double [not null]
+  risk_tier        text [not null]
+  model_version    text
+  indexes { (batch_id, score_date) [unique] }
+  Note: 'Model 1 output: calibrated expiry-risk score + tier per batch.'
+}
+
+Table demand_forecasts [headercolor: #EA580C] {
+  id            bigint [pk, increment]
+  pharmacy_id   text [not null, ref: > pharmacies.pharmacy_id]
+  drug_id       integer [not null, ref: > drugs.drug_id]
+  forecast_date date [not null]
+  horizon_days  integer [not null]
+  q10           double
+  q50           double
+  q90           double
+  method        text
+  indexes { (pharmacy_id, drug_id, forecast_date, horizon_days) [unique] }
+  Note: 'Model 2 output: probabilistic demand quantiles per horizon.'
+}
+
+Table redistribution_recommendations [headercolor: #EA580C] {
+  rec_id             bigint [pk, increment]
+  batch_id           bigint [not null, ref: > inventory_batches.batch_id]
+  source_pharmacy_id text [not null, ref: > pharmacies.pharmacy_id]
+  target_pharmacy_id text [not null, ref: > pharmacies.pharmacy_id]
+  drug_id            integer [not null, ref: > drugs.drug_id]
+  quantity           integer [not null]
+  match_score        double [not null]
+  suggested_price    "numeric(12,2)"
+  distance_km        double
+  status             text [not null, default: 'RECOMMENDED']
+  created_at         timestamp [not null]
+  Note: 'Model 3 output: scored source -> target transfer recommendations.'
+}
+
+// ---------- COORDINATION / WORKFLOW ----------
+Table transfers [headercolor: #7C3AED] {
+  transfer_id     bigint [pk, increment]
+  rec_id          bigint [not null, ref: > redistribution_recommendations.rec_id]
+  status          text [not null, default: 'OFFERED']
+  agreed_price    "numeric(12,2)"
+  agreed_quantity integer
+  created_at      timestamp [not null]
+  updated_at      timestamp [not null]
+  Note: 'State machine: OFFERED -> ACCEPTED -> IN_TRANSIT -> COMPLETED / DECLINED.'
+}
+
+Table price_negotiations [headercolor: #7C3AED] {
+  id             bigint [pk, increment]
+  rec_id         bigint [not null, ref: > redistribution_recommendations.rec_id]
+  proposer       text [not null]
+  proposed_price "numeric(12,2)" [not null]
+  created_at     timestamp [not null]
+  Note: 'Counter-offers exchanged on a recommendation.'
+}
+
+Table notifications [headercolor: #7C3AED] {
+  id             bigint [pk, increment]
+  pharmacy_id    text [not null, ref: > pharmacies.pharmacy_id]
+  channel        text [not null, default: 'in_app']
+  message        text [not null]
+  related_rec_id bigint [ref: > redistribution_recommendations.rec_id]
+  created_at     timestamp [not null]
+  read_at        timestamp
+  Note: 'Alerts to pharmacies (in_app / sms / whatsapp).'
+}
+
+Table users [headercolor: #7C3AED] {
+  user_id       bigint [pk, increment]
+  pharmacy_id   text [not null, ref: > pharmacies.pharmacy_id]
+  pcn_number    text [not null, unique]
+  password_hash text [not null]
+  created_at    timestamp [not null]
+  Note: 'Login accounts; PCN number is the username.'
+}
+
+// ---------- Logical groupings (colored boxes in the canvas) ----------
+TableGroup "Dimensions" {
+  pharmacies
+  drugs
+}
+TableGroup "Core data" {
+  sales_daily
+  inventory_batches
+}
+TableGroup "Model outputs" {
+  expiry_risk_scores
+  demand_forecasts
+  redistribution_recommendations
+}
+TableGroup "Coordination & workflow" {
+  transfers
+  price_negotiations
+  notifications
+  users
+}
