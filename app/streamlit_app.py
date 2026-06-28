@@ -49,7 +49,7 @@ html, body, [class*="css"]{ font-family:'Inter',system-ui,sans-serif; }
 [data-testid="stCaptionContainer"], .stCaption{ color:var(--muted) !important; }
 [data-testid="stNumberInput"] [data-baseweb="input"], [data-testid="stNumberInput"] [data-baseweb="base-input"],
 [data-baseweb="select"] > div, [data-testid="stTextInput"] [data-baseweb="input"]{
-  background:var(--field) !important; border:1px solid var(--line) !important; border-radius:8px !important; }
+  background:var(--field) !important; border-color:var(--line) !important; }
 [data-testid="stNumberInput"] input, [data-testid="stTextInput"] input{
   background:var(--field) !important; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
 [data-testid="stNumberInput"] button{ background:var(--surface) !important; color:var(--ink) !important; border-color:var(--line) !important; }
@@ -92,8 +92,6 @@ div[role="radiogroup"]{ justify-content:flex-end; gap:10px; }
 .stButton>button[kind="primary"]:hover{ filter:brightness(0.92); }
 .stButton>button[kind="secondary"]{ background:var(--surface); color:var(--ink); }
 div[data-testid="stVerticalBlockBorderWrapper"]{ background:var(--surface); border:1px solid var(--line) !important; border-radius:14px; }
-/* remove border only from nested st.container wrappers (the empty outlines), keep input field borders */
-div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stVerticalBlockBorderWrapper"]{ border:none !important; background:transparent !important; }
 /* the total-box draws its own border; ensure its markdown wrapper adds none */
 [data-testid="stMarkdownContainer"]:has(.total-box){ border:none !important; background:transparent !important; padding:0 !important; }
 @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
@@ -238,7 +236,7 @@ def offer_card(r, prefix):
     with st.container(border=True):
         st.markdown(f"<div class='drug'>{r['drug']} {badge}</div>"
                     f"<div class='meta'><span class='route'>{pick}</span><span class='arrow'>→</span>"
-                    f"<span class='route'>{r['other']}</span> · {r['km']} km away</div>",
+                    f"<span class='route'>{r['other']}</span> · {r['km']} km · match {r['score']:.2f}</div>",
                     unsafe_allow_html=True)
         c1, c2, c3, c4, c5 = st.columns([1.4, 1.4, 1.5, 1, 1], vertical_alignment="top")
         maxq = int(max(int(r['available']), int(r['quantity'])))
