@@ -92,6 +92,8 @@ div[role="radiogroup"]{ justify-content:flex-end; gap:10px; }
 .stButton>button[kind="primary"]:hover{ filter:brightness(0.92); }
 .stButton>button[kind="secondary"]{ background:var(--surface); color:var(--ink); }
 div[data-testid="stVerticalBlockBorderWrapper"]{ background:var(--surface); border:1px solid var(--line) !important; border-radius:14px; }
+/* remove the border from nested block wrappers (the empty outlines above buttons/total box) */
+div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlockBorderWrapper"]{ border:none !important; background:transparent !important; }
 /* the total-box draws its own border; ensure its markdown wrapper adds none */
 [data-testid="stMarkdownContainer"]:has(.total-box){ border:none !important; background:transparent !important; padding:0 !important; }
 @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
