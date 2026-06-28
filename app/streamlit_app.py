@@ -49,11 +49,9 @@ html, body, [class*="css"]{ font-family:'Inter',system-ui,sans-serif; }
 [data-testid="stCaptionContainer"], .stCaption{ color:var(--muted) !important; }
 [data-testid="stNumberInput"] [data-baseweb="input"], [data-testid="stNumberInput"] [data-baseweb="base-input"],
 [data-baseweb="select"] > div, [data-testid="stTextInput"] [data-baseweb="input"]{
-  background:var(--field) !important; border:1px solid var(--line) !important; border-radius:8px !important;
-  min-height:52px !important; }
+  background:var(--field) !important; border-color:var(--line) !important; }
 [data-testid="stNumberInput"] input, [data-testid="stTextInput"] input{
-  background:var(--field) !important; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important;
-  font-size:1.05rem !important; }
+  background:var(--field) !important; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
 [data-testid="stNumberInput"] button{ background:var(--surface) !important; color:var(--ink) !important; border-color:var(--line) !important; }
 [data-baseweb="select"] *{ color:var(--ink) !important; }
 .brandmark{ display:flex; align-items:center; gap:10px; padding:10px 4px; line-height:1.4; min-height:44px; }
@@ -77,7 +75,7 @@ html, body, [class*="css"]{ font-family:'Inter',system-ui,sans-serif; }
 .drug{ font-weight:600; color:var(--ink); font-size:1.05rem; }
 .meta{ color:var(--muted); font-size:.82rem; margin-top:2px; }
 .route{ font-weight:600; color:var(--ink); } .arrow{ color:var(--brand); font-weight:700; padding:0 6px; }
-.total-box{ background:var(--field); border:1px solid var(--line); border-radius:8px; padding:0 12px; height:52px; margin-top:12px; display:flex; flex-direction:column; justify-content:center; }
+.total-box{ background:var(--field); border:1px solid var(--line); border-radius:8px; padding:0 12px; height:46px; margin-top:12px; display:flex; flex-direction:column; justify-content:center; }
 .total-l{ color:var(--muted); font-size:.6rem; text-transform:uppercase; letter-spacing:.05em; line-height:1.1; }
 .total-v{ color:var(--ink); font-weight:700; font-size:.95rem; font-family:'Fraunces',serif; line-height:1.1; white-space:nowrap; }
 .card{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin-bottom:10px; }
@@ -87,15 +85,15 @@ section[data-testid="stSidebar"]{ background:var(--surface); border-right:1px so
 .stTabs [aria-selected="true"]{ color:var(--brand) !important; }
 .stTabs [data-baseweb="tab-highlight"]{ background:var(--brand); }
 div[role="radiogroup"]{ justify-content:flex-end; gap:10px; }
-.stButton>button{ border-radius:10px; font-weight:600; border:none; padding:.5rem 1rem; min-height:52px; }
+.stButton>button{ border-radius:10px; font-weight:600; border:1px solid var(--line); padding:.5rem 1rem; min-height:46px; }
 /* nudge buttons down to align with the total-value box */
 .stButton>button{ margin-top:12px; }
-.stButton>button[kind="primary"]{ background:var(--brand); color:#fff; }
+.stButton>button[kind="primary"]{ background:var(--brand); border-color:var(--brand); color:#fff; }
 .stButton>button[kind="primary"]:hover{ filter:brightness(0.92); }
-.stButton>button[kind="secondary"]{ background:var(--brand-soft); color:var(--brand); }
+.stButton>button[kind="secondary"]{ background:var(--surface); color:var(--ink); }
 div[data-testid="stVerticalBlockBorderWrapper"]{ background:var(--surface); border:1px solid var(--line) !important; border-radius:14px; }
-/* remove border only from nested st.container wrappers (the empty outlines), keep input field borders */
-div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stVerticalBlockBorderWrapper"]{ border:none !important; background:transparent !important; }
+/* remove the border from nested block wrappers (the empty outlines above buttons/total box) */
+div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlockBorderWrapper"]{ border:none !important; background:transparent !important; }
 /* the total-box draws its own border; ensure its markdown wrapper adds none */
 [data-testid="stMarkdownContainer"]:has(.total-box){ border:none !important; background:transparent !important; padding:0 !important; }
 @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
@@ -240,7 +238,7 @@ def offer_card(r, prefix):
     with st.container(border=True):
         st.markdown(f"<div class='drug'>{r['drug']} {badge}</div>"
                     f"<div class='meta'><span class='route'>{pick}</span><span class='arrow'>→</span>"
-                    f"<span class='route'>{r['other']}</span> · {r['km']} km away</div>",
+                    f"<span class='route'>{r['other']}</span> · {r['km']} km · match {r['score']:.2f}</div>",
                     unsafe_allow_html=True)
         c1, c2, c3, c4, c5 = st.columns([1.4, 1.4, 1.5, 1, 1], vertical_alignment="top")
         maxq = int(max(int(r['available']), int(r['quantity'])))
