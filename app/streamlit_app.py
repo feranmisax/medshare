@@ -75,7 +75,7 @@ html, body, [class*="css"]{ font-family:'Inter',system-ui,sans-serif; }
 .drug{ font-weight:600; color:var(--ink); font-size:1.05rem; }
 .meta{ color:var(--muted); font-size:.82rem; margin-top:2px; }
 .route{ font-weight:600; color:var(--ink); } .arrow{ color:var(--brand); font-weight:700; padding:0 6px; }
-.total-box{ background:var(--field); border:1px solid var(--line); border-radius:8px; padding:0 12px; height:42px; display:flex; flex-direction:column; justify-content:center; }
+.total-box{ background:var(--field); border:1px solid var(--line); border-radius:8px; padding:0 12px; height:46px; display:flex; flex-direction:column; justify-content:center; }
 .total-l{ color:var(--muted); font-size:.6rem; text-transform:uppercase; letter-spacing:.05em; line-height:1.1; }
 .total-v{ color:var(--ink); font-weight:700; font-size:.95rem; font-family:'Fraunces',serif; line-height:1.1; white-space:nowrap; }
 .card{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin-bottom:10px; }
