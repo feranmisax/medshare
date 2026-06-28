@@ -75,7 +75,7 @@ html, body, [class*="css"]{ font-family:'Inter',system-ui,sans-serif; }
 .drug{ font-weight:600; color:var(--ink); font-size:1.05rem; }
 .meta{ color:var(--muted); font-size:.82rem; margin-top:2px; }
 .route{ font-weight:600; color:var(--ink); } .arrow{ color:var(--brand); font-weight:700; padding:0 6px; }
-.total-box{ background:var(--field); border:1px solid var(--line); border-radius:8px; padding:0 12px; height:46px; display:flex; flex-direction:column; justify-content:center; }
+.total-box{ background:var(--field); border:1px solid var(--line); border-radius:8px; padding:0 12px; height:46px; margin-top:12px; display:flex; flex-direction:column; justify-content:center; }
 .total-l{ color:var(--muted); font-size:.6rem; text-transform:uppercase; letter-spacing:.05em; line-height:1.1; }
 .total-v{ color:var(--ink); font-weight:700; font-size:.95rem; font-family:'Fraunces',serif; line-height:1.1; white-space:nowrap; }
 .card{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin-bottom:10px; }
@@ -86,6 +86,8 @@ section[data-testid="stSidebar"]{ background:var(--surface); border-right:1px so
 .stTabs [data-baseweb="tab-highlight"]{ background:var(--brand); }
 div[role="radiogroup"]{ justify-content:flex-end; gap:10px; }
 .stButton>button{ border-radius:10px; font-weight:600; border:1px solid var(--line); padding:.5rem 1rem; min-height:42px; }
+/* nudge the offer-row buttons down to center against the labelled input fields */
+.offer-row + div [data-testid="stHorizontalBlock"] .stButton>button{ margin-top:12px; }
 .stButton>button[kind="primary"]{ background:var(--brand); border-color:var(--brand); color:#fff; }
 .stButton>button[kind="primary"]:hover{ filter:brightness(0.92); }
 .stButton>button[kind="secondary"]{ background:var(--surface); color:var(--ink); }
@@ -234,6 +236,7 @@ def offer_card(r, prefix):
                     f"<div class='meta'><span class='route'>{pick}</span><span class='arrow'>→</span>"
                     f"<span class='route'>{r['other']}</span> · {r['km']} km · match {r['score']:.2f}</div>",
                     unsafe_allow_html=True)
+        st.markdown("<div class='offer-row'></div>", unsafe_allow_html=True)
         c1, c2, c3, c4, c5 = st.columns([1.4, 1.4, 1.5, 1, 1], vertical_alignment="top")
         maxq = int(max(int(r['available']), int(r['quantity'])))
         qty = c1.number_input("Quantity (units)", 1, maxq, int(r['quantity']), 1, key=f"q{prefix}{r['rec_id']}")
