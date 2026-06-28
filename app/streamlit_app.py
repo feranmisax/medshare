@@ -15,7 +15,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import plotly.express as px
 
-from src import db, auth, requests_match
+from src import db, auth, requests_match, model3_matching
 
 st.set_page_config(page_title="MedShare", page_icon="✚", layout="wide",
                    initial_sidebar_state="expanded")
@@ -54,8 +54,8 @@ html, body, [class*="css"]{ font-family:'Inter',system-ui,sans-serif; }
   background:var(--field) !important; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
 [data-testid="stNumberInput"] button{ background:var(--surface) !important; color:var(--ink) !important; border-color:var(--line) !important; }
 [data-baseweb="select"] *{ color:var(--ink) !important; }
-.brandmark{ display:flex; align-items:center; gap:9px; }
-.brandmark .wm{ font-family:'Fraunces',serif; font-weight:600; font-size:1.5rem; color:var(--brand); }
+.brandmark{ display:flex; align-items:center; gap:10px; padding:10px 4px; line-height:1.4; min-height:44px; }
+.brandmark .wm{ font-family:'Fraunces',serif; font-weight:600; font-size:1.5rem; line-height:1.4; color:var(--brand); display:inline-block; padding:2px 0; }
 .eyebrow{ text-transform:uppercase; letter-spacing:.14em; font-size:.72rem; font-weight:600; color:var(--brand); margin-top:.4rem; }
 .wordmark{ font-family:'Fraunces',serif; font-weight:600; font-size:2.3rem; color:var(--ink); letter-spacing:-0.02em; line-height:1; margin:.15rem 0 0; }
 .tagline{ color:var(--muted); font-size:.95rem; margin:.4rem 0 0; }
@@ -75,8 +75,9 @@ html, body, [class*="css"]{ font-family:'Inter',system-ui,sans-serif; }
 .drug{ font-weight:600; color:var(--ink); font-size:1.05rem; }
 .meta{ color:var(--muted); font-size:.82rem; margin-top:2px; }
 .route{ font-weight:600; color:var(--ink); } .arrow{ color:var(--brand); font-weight:700; padding:0 6px; }
-.total-l{ color:var(--muted); font-size:.72rem; text-transform:uppercase; letter-spacing:.06em; }
-.total-v{ color:var(--ink); font-weight:700; font-size:1.15rem; font-family:'Fraunces',serif; }
+.total-box{ background:var(--field); border:1px solid var(--line); border-radius:8px; padding:8px 12px; min-height:58px; display:flex; flex-direction:column; justify-content:center; }
+.total-l{ color:var(--muted); font-size:.68rem; text-transform:uppercase; letter-spacing:.06em; margin-bottom:2px; }
+.total-v{ color:var(--ink); font-weight:700; font-size:1.05rem; font-family:'Fraunces',serif; line-height:1.1; white-space:nowrap; }
 .card{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin-bottom:10px; }
 section[data-testid="stSidebar"]{ background:var(--surface); border-right:1px solid var(--line); }
 .stTabs [data-baseweb="tab-list"]{ gap:8px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
@@ -233,12 +234,12 @@ def offer_card(r, prefix):
                     f"<div class='meta'><span class='route'>{pick}</span><span class='arrow'>→</span>"
                     f"<span class='route'>{r['other']}</span> · {r['km']} km · match {r['score']:.2f}</div>",
                     unsafe_allow_html=True)
-        c1, c2, c3, c4, c5 = st.columns([1.4, 1.4, 1.2, 1, 1], vertical_alignment="bottom")
+        c1, c2, c3, c4, c5 = st.columns([1.4, 1.4, 1.5, 1, 1], vertical_alignment="bottom")
         maxq = int(max(int(r['available']), int(r['quantity'])))
         qty = c1.number_input("Quantity (units)", 1, maxq, int(r['quantity']), 1, key=f"q{prefix}{r['rec_id']}")
         price = c2.number_input("Price (₦/unit)", 0.0, value=float(r['suggested_price']), step=10.0,
                                format="%.2f", key=f"p{prefix}{r['rec_id']}")
-        c3.markdown(f"<div class='total-l'>Total value</div><div class='total-v'>₦{qty*price:,.0f}</div>", unsafe_allow_html=True)
+        c3.markdown(f"<div class='total-box'><div class='total-l'>Total value</div><div class='total-v'>₦{qty*price:,.0f}</div></div>", unsafe_allow_html=True)
         if c4.button("Send offer", key=f"of{prefix}{r['rec_id']}", type="primary", use_container_width=True):
             db.run_sql("""UPDATE redistribution_recommendations
                           SET status='OFFERED', quantity=:q, suggested_price=:pr WHERE rec_id=:r""",
@@ -294,8 +295,18 @@ def accept_card(r):
             st.toast("Transfer confirmed — stock moved."); st.rerun()
         if c3.button("Decline", key=f"rj{r['rec_id']}", use_container_width=True):
             db.run_sql("UPDATE redistribution_recommendations SET status='DECLINED' WHERE rec_id=:r", {"r": int(r['rec_id'])})
-            notify(r['other'], f"{pick} DECLINED your offer of {int(r['quantity'])} units of {r['drug']}.", r['rec_id'])
             notify(pick, f"You declined {r['other']}'s offer of {r['drug']}.", r['rec_id'])
+            # try to re-match this surplus to a different pharmacy (exclude the one that declined)
+            new_target = None
+            if r['origin'] == 'SURPLUS' and pd.notna(r.get('batch_id')):
+                try:
+                    new_target = model3_matching.rematch_batch(int(r['batch_id']), exclude_pharmacies={pick, r['other']})
+                except Exception:
+                    new_target = None
+            if new_target:
+                notify(r['other'], f"{pick} declined your {r['drug']} offer — re-matched to {new_target}, ready to offer again.")
+            else:
+                notify(r['other'], f"{pick} declined your offer of {int(r['quantity'])} units of {r['drug']}.", r['rec_id'])
             st.rerun()
 
 st.write("")
