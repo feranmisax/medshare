@@ -234,7 +234,7 @@ def offer_card(r, prefix):
                     f"<div class='meta'><span class='route'>{pick}</span><span class='arrow'>→</span>"
                     f"<span class='route'>{r['other']}</span> · {r['km']} km · match {r['score']:.2f}</div>",
                     unsafe_allow_html=True)
-        c1, c2, c3, c4, c5 = st.columns([1.4, 1.4, 1.5, 1, 1], vertical_alignment="center")
+        c1, c2, c3, c4, c5 = st.columns([1.4, 1.4, 1.5, 1, 1], vertical_alignment="top")
         maxq = int(max(int(r['available']), int(r['quantity'])))
         qty = c1.number_input("Quantity (units)", 1, maxq, int(r['quantity']), 1, key=f"q{prefix}{r['rec_id']}")
         price = c2.number_input("Price (₦/unit)", 0.0, value=float(r['suggested_price']), step=10.0,
