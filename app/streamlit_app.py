@@ -86,6 +86,8 @@ section[data-testid="stSidebar"]{ background:var(--surface); border-right:1px so
 .stTabs [data-baseweb="tab-highlight"]{ background:var(--brand); }
 div[role="radiogroup"]{ justify-content:flex-end; gap:10px; }
 .btn-spacer{ height:1.7rem; }
+.btn-offset{ height:1.6rem; }
+.total-box.offset{ margin-top:1.6rem; }
 .stButton>button{ border-radius:10px; font-weight:600; border:1px solid var(--line); padding:.5rem 1rem; min-height:42px; }
 .stButton>button[kind="primary"]{ background:var(--brand); border-color:var(--brand); color:#fff; }
 .stButton>button[kind="primary"]:hover{ filter:brightness(0.92); }
@@ -235,20 +237,26 @@ def offer_card(r, prefix):
                     f"<div class='meta'><span class='route'>{pick}</span><span class='arrow'>→</span>"
                     f"<span class='route'>{r['other']}</span> · {r['km']} km · match {r['score']:.2f}</div>",
                     unsafe_allow_html=True)
-        c1, c2, c3, c4, c5 = st.columns([1.4, 1.4, 1.5, 1, 1], vertical_alignment="bottom")
+        c1, c2, c3, c4, c5 = st.columns([1.4, 1.4, 1.5, 1, 1], vertical_alignment="top")
         maxq = int(max(int(r['available']), int(r['quantity'])))
         qty = c1.number_input("Quantity (units)", 1, maxq, int(r['quantity']), 1, key=f"q{prefix}{r['rec_id']}")
         price = c2.number_input("Price (₦/unit)", 0.0, value=float(r['suggested_price']), step=10.0,
                                format="%.2f", key=f"p{prefix}{r['rec_id']}")
-        c3.markdown(f"<div class='total-box'><div class='total-l'>Total value</div><div class='total-v'>₦{qty*price:,.0f}</div></div>", unsafe_allow_html=True)
-        if c4.button("Send offer", key=f"of{prefix}{r['rec_id']}", type="primary", use_container_width=True):
+        c3.markdown(f"<div class='total-box offset'><div class='total-l'>Total value</div><div class='total-v'>₦{qty*price:,.0f}</div></div>", unsafe_allow_html=True)
+        with c4:
+            st.markdown("<div class='btn-offset'></div>", unsafe_allow_html=True)
+            send = st.button("Send offer", key=f"of{prefix}{r['rec_id']}", type="primary", use_container_width=True)
+        with c5:
+            st.markdown("<div class='btn-offset'></div>", unsafe_allow_html=True)
+            decline = st.button("Decline", key=f"dc{prefix}{r['rec_id']}", use_container_width=True)
+        if send:
             db.run_sql("""UPDATE redistribution_recommendations
                           SET status='OFFERED', quantity=:q, suggested_price=:pr WHERE rec_id=:r""",
                        {"q": int(qty), "pr": float(price), "r": int(r['rec_id'])})
             notify(r['other'], f"New offer: {int(qty)} units of {r['drug']} from {pick}.", r['rec_id'])
             notify(pick, f"You sent an offer of {int(qty)} units of {r['drug']} to {r['other']}.", r['rec_id'])
             st.toast("Offer sent to the other pharmacy."); st.rerun()
-        if c5.button("Decline", key=f"dc{prefix}{r['rec_id']}", use_container_width=True):
+        if decline:
             db.run_sql("UPDATE redistribution_recommendations SET status='DECLINED' WHERE rec_id=:r", {"r": int(r['rec_id'])})
             notify(r['other'], f"{pick} passed on the suggested transfer of {r['drug']}.", r['rec_id'])
             notify(pick, f"You declined the suggestion to send {r['drug']} to {r['other']}.", r['rec_id'])
