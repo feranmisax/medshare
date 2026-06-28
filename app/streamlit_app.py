@@ -75,9 +75,9 @@ html, body, [class*="css"]{ font-family:'Inter',system-ui,sans-serif; }
 .drug{ font-weight:600; color:var(--ink); font-size:1.05rem; }
 .meta{ color:var(--muted); font-size:.82rem; margin-top:2px; }
 .route{ font-weight:600; color:var(--ink); } .arrow{ color:var(--brand); font-weight:700; padding:0 6px; }
-.total-box{ background:var(--field); border:1px solid var(--line); border-radius:8px; padding:5px 12px; min-height:42px; display:flex; flex-direction:column; justify-content:center; }
-.total-l{ color:var(--muted); font-size:.62rem; text-transform:uppercase; letter-spacing:.05em; margin-bottom:1px; line-height:1; }
-.total-v{ color:var(--ink); font-weight:700; font-size:.95rem; font-family:'Fraunces',serif; line-height:1.05; white-space:nowrap; }
+.total-box{ background:var(--field); border:1px solid var(--line); border-radius:8px; padding:0 12px; height:42px; display:flex; flex-direction:column; justify-content:center; }
+.total-l{ color:var(--muted); font-size:.6rem; text-transform:uppercase; letter-spacing:.05em; line-height:1.1; }
+.total-v{ color:var(--ink); font-weight:700; font-size:.95rem; font-family:'Fraunces',serif; line-height:1.1; white-space:nowrap; }
 .card{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin-bottom:10px; }
 section[data-testid="stSidebar"]{ background:var(--surface); border-right:1px solid var(--line); }
 .stTabs [data-baseweb="tab-list"]{ gap:8px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
@@ -85,9 +85,6 @@ section[data-testid="stSidebar"]{ background:var(--surface); border-right:1px so
 .stTabs [aria-selected="true"]{ color:var(--brand) !important; }
 .stTabs [data-baseweb="tab-highlight"]{ background:var(--brand); }
 div[role="radiogroup"]{ justify-content:flex-end; gap:10px; }
-.btn-spacer{ height:1.7rem; }
-.btn-offset{ height:1.6rem; }
-.total-box.offset{ margin-top:1.6rem; }
 .stButton>button{ border-radius:10px; font-weight:600; border:1px solid var(--line); padding:.5rem 1rem; min-height:42px; }
 .stButton>button[kind="primary"]{ background:var(--brand); border-color:var(--brand); color:#fff; }
 .stButton>button[kind="primary"]:hover{ filter:brightness(0.92); }
@@ -237,18 +234,14 @@ def offer_card(r, prefix):
                     f"<div class='meta'><span class='route'>{pick}</span><span class='arrow'>→</span>"
                     f"<span class='route'>{r['other']}</span> · {r['km']} km · match {r['score']:.2f}</div>",
                     unsafe_allow_html=True)
-        c1, c2, c3, c4, c5 = st.columns([1.4, 1.4, 1.5, 1, 1], vertical_alignment="top")
+        c1, c2, c3, c4, c5 = st.columns([1.4, 1.4, 1.5, 1, 1], vertical_alignment="bottom")
         maxq = int(max(int(r['available']), int(r['quantity'])))
         qty = c1.number_input("Quantity (units)", 1, maxq, int(r['quantity']), 1, key=f"q{prefix}{r['rec_id']}")
         price = c2.number_input("Price (₦/unit)", 0.0, value=float(r['suggested_price']), step=10.0,
                                format="%.2f", key=f"p{prefix}{r['rec_id']}")
-        c3.markdown(f"<div class='total-box offset'><div class='total-l'>Total value</div><div class='total-v'>₦{qty*price:,.0f}</div></div>", unsafe_allow_html=True)
-        with c4:
-            st.markdown("<div class='btn-offset'></div>", unsafe_allow_html=True)
-            send = st.button("Send offer", key=f"of{prefix}{r['rec_id']}", type="primary", use_container_width=True)
-        with c5:
-            st.markdown("<div class='btn-offset'></div>", unsafe_allow_html=True)
-            decline = st.button("Decline", key=f"dc{prefix}{r['rec_id']}", use_container_width=True)
+        c3.markdown(f"<div class='total-box'><div class='total-l'>Total value</div><div class='total-v'>₦{qty*price:,.0f}</div></div>", unsafe_allow_html=True)
+        send = c4.button("Send offer", key=f"of{prefix}{r['rec_id']}", type="primary", use_container_width=True)
+        decline = c5.button("Decline", key=f"dc{prefix}{r['rec_id']}", use_container_width=True)
         if send:
             db.run_sql("""UPDATE redistribution_recommendations
                           SET status='OFFERED', quantity=:q, suggested_price=:pr WHERE rec_id=:r""",
