@@ -85,7 +85,7 @@ section[data-testid="stSidebar"]{ background:var(--surface); border-right:1px so
 .stTabs [aria-selected="true"]{ color:var(--brand) !important; }
 .stTabs [data-baseweb="tab-highlight"]{ background:var(--brand); }
 div[role="radiogroup"]{ justify-content:flex-end; gap:10px; }
-.stButton>button{ border-radius:10px; font-weight:600; border:1px solid var(--line); padding:.5rem 1rem; }
+.stButton>button{ border-radius:10px; font-weight:600; border:1px solid var(--line); padding:.5rem 1rem; min-height:58px; }
 .stButton>button[kind="primary"]{ background:var(--brand); border-color:var(--brand); color:#fff; }
 .stButton>button[kind="primary"]:hover{ filter:brightness(0.92); }
 .stButton>button[kind="secondary"]{ background:var(--surface); color:var(--ink); }
@@ -264,7 +264,7 @@ def accept_card(r):
         gross = float(r['quantity']) * float(r['suggested_price'])
         fee = round(gross * COMMISSION_RATE, 2)
         c1, c2, c3 = st.columns([3, 1, 1], vertical_alignment="bottom")
-        c1.markdown(f"<div class='total-l'>Total ₦{gross:,.0f} · platform fee ₦{fee:,.0f} ({COMMISSION_RATE:.0%})</div>", unsafe_allow_html=True)
+        c1.markdown(f"<div class='total-box'><div class='total-l'>Total · platform fee {COMMISSION_RATE:.0%}</div><div class='total-v'>₦{gross:,.0f} · fee ₦{fee:,.0f}</div></div>", unsafe_allow_html=True)
         if c2.button("Accept", key=f"ac{r['rec_id']}", type="primary", use_container_width=True):
             qty = int(r['quantity'])
             db.run_sql("UPDATE redistribution_recommendations SET status='ACCEPTED' WHERE rec_id=:r", {"r": int(r['rec_id'])})
