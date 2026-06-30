@@ -210,12 +210,12 @@ def build_pdf(pid, label, period=None):
 
     if period_label:
         from reportlab.platypus import PageBreak
-        # ===== PAGE 1 — the bounded previous month =====
-        story.append(Paragraph("MedShare — Monthly Statement", h))
+        # ===== PAGE 1 — the chosen period (a calendar month from the email, or a custom range from the app) =====
+        story.append(Paragraph("MedShare — Period Report", h))
         story.append(Paragraph(f"{label} &nbsp;·&nbsp; {period_label} &nbsp;·&nbsp; "
                                f"generated {date.today():%d %b %Y}", sub))
         story.append(Spacer(1, 8))
-        story.append(Paragraph(f"Activity during {period_label}", sec))
+        story.append(Paragraph(f"Activity over {period_label}", sec))
         act = [["Metric", "Value"],
                ["Value redistributed (sold)", naira(m["value_sold"])],
                ["Value received (bought)", naira(m["value_bought"])],
@@ -225,7 +225,7 @@ def build_pdf(pid, label, period=None):
                ["Value lost to expiry", naira(m["waste_value"])],
                ["Batches expired", f"{m['waste_batches']:,}"]]
         if m["rescue_ratio"] is not None:
-            act.append(["Operational rescue ratio (this month)", f"{m['rescue_ratio']*100:.0f}%"])
+            act.append(["Operational rescue ratio (this period)", f"{m['rescue_ratio']*100:.0f}%"])
         story.append(styled(act))
         story.append(Paragraph(f"Top 5 best-selling drugs ({period_label})", sec))
         if m["top_sellers"].empty:
@@ -234,7 +234,7 @@ def build_pdf(pid, label, period=None):
             story.append(sellers_table(m["top_sellers"]))
         story.append(Spacer(1, 14))
         story.append(Paragraph(
-            f"This page covers activity from the first to the last day of {period_label}. "
+            f"This page covers activity over {period_label}. "
             "Page 2 shows the all-time summary and current position as at the generation date.", sub))
 
         # ===== PAGE 2 — all-time, up to the send date =====

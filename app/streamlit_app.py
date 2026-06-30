@@ -585,38 +585,50 @@ with t9:
 
     st.divider()
     st.markdown("**Download or email report**")
-    st.caption("Generate a PDF of this dashboard for your records, or send it to an email address.")
+    st.caption("Pick the date range for page 1 of the report. Page 2 is always the full all-time summary.")
     try:
-        pdf_bytes = dashboard.build_pdf(pick, f"{pick} · {me['area']}")
-        fname = f"MedShare_{pick}_{pd.Timestamp.today():%Y%m%d}.pdf"
-        dc1, dc2, dc3 = st.columns([1.1, 1.6, 1.1], vertical_alignment="bottom")
-        with dc1:
-            st.download_button("⬇ Download PDF", data=pdf_bytes, file_name=fname,
-                               mime="application/pdf", type="primary", use_container_width=True)
-        # prefill with the saved pharmacy email if present
-        saved_email = db.read_sql("SELECT email FROM pharmacies WHERE pharmacy_id=:p", {"p": pick}).iloc[0]["email"]
-        with dc2:
-            to_email = st.text_input("Send to email", value=(saved_email or ""), key="rep_email",
-                                     placeholder="pharmacy@example.com", label_visibility="collapsed")
-        with dc3:
-            if st.button("✉ Email report", use_container_width=True):
-                from src import emailer
-                if not to_email:
-                    st.warning("Enter an email address first.")
-                elif not emailer.is_configured():
-                    st.warning("Email isn't set up yet. Add the SMTP secrets to enable sending.")
-                else:
-                    try:
-                        plain, html = emailer.report_email_body(
-                            pick, me['area'], pd.Timestamp.today().strftime("%B %Y"))
-                        emailer.send_report(
-                            to_email, f"MedShare report — {pick}",
-                            plain, pdf_bytes, fname, body_html=html)
-                        # remember the address for next time
-                        db.run_sql("UPDATE pharmacies SET email=:e WHERE pharmacy_id=:p",
-                                   {"e": to_email, "p": pick})
-                        st.success(f"Report sent to {to_email}.")
-                    except Exception as ex:
-                        st.error(f"Could not send: {ex}")
+        today = pd.Timestamp.today().normalize()
+        month_start = today.replace(day=1)
+        rc1, rc2 = st.columns(2)
+        d_from = rc1.date_input("From", value=month_start.date(), key="rep_from")
+        d_to = rc2.date_input("To", value=today.date(), key="rep_to")
+
+        if d_from > d_to:
+            st.warning("‘From’ date must be on or before ‘To’ date.")
+        else:
+            # label e.g. "01 Jun – 30 Jun 2026"; period end is exclusive (add a day)
+            start = pd.Timestamp(d_from).to_pydatetime()
+            end = (pd.Timestamp(d_to) + pd.Timedelta(days=1)).to_pydatetime()
+            range_label = f"{d_from:%d %b %Y} – {d_to:%d %b %Y}"
+            pdf_bytes = dashboard.build_pdf(pick, f"{pick} · {me['area']}",
+                                            period=(start, end, range_label))
+            fname = f"MedShare_{pick}_{d_from:%Y%m%d}-{d_to:%Y%m%d}.pdf"
+
+            dc1, dc2, dc3 = st.columns([1.1, 1.6, 1.1], vertical_alignment="bottom")
+            with dc1:
+                st.download_button("⬇ Download PDF", data=pdf_bytes, file_name=fname,
+                                   mime="application/pdf", type="primary", use_container_width=True)
+            saved_email = db.read_sql("SELECT email FROM pharmacies WHERE pharmacy_id=:p", {"p": pick}).iloc[0]["email"]
+            with dc2:
+                to_email = st.text_input("Send to email", value=(saved_email or ""), key="rep_email",
+                                         placeholder="pharmacy@example.com", label_visibility="collapsed")
+            with dc3:
+                if st.button("✉ Email report", use_container_width=True):
+                    from src import emailer
+                    if not to_email:
+                        st.warning("Enter an email address first.")
+                    elif not emailer.is_configured():
+                        st.warning("Email isn't set up yet. Add the SMTP secrets to enable sending.")
+                    else:
+                        try:
+                            plain, html = emailer.report_email_body(pick, me['area'], range_label)
+                            emailer.send_report(
+                                to_email, f"MedShare report — {pick} ({range_label})",
+                                plain, pdf_bytes, fname, body_html=html)
+                            db.run_sql("UPDATE pharmacies SET email=:e WHERE pharmacy_id=:p",
+                                       {"e": to_email, "p": pick})
+                            st.success(f"Report sent to {to_email}.")
+                        except Exception as ex:
+                            st.error(f"Could not send: {ex}")
     except Exception as e:
         st.warning("PDF generation needs the reportlab package. Add `reportlab` to requirements.txt and reboot the app.")
