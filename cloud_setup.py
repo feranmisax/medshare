@@ -16,7 +16,7 @@ from src import db
 import config
 
 ROOT = Path(__file__).resolve().parent
-SQL_FILES = ["db/schema.sql", "db/migrate_marketplace.sql", "db/migrate_expiry.sql"]
+SQL_FILES = ["db/schema.sql", "db/migrate_marketplace.sql", "db/migrate_expiry.sql", "db/migrate_email.sql"]
 
 
 def run_sql_file(path):

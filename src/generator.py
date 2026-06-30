@@ -10,8 +10,7 @@ demand levels, prices, expiry propensity, willingness, geography).
 
 Run:  python -m src.generator
 """
-import re
-import sys, math
+import sys, math, re
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 

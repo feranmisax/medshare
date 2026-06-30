@@ -15,7 +15,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 import plotly.express as px
 
-from src import db, auth, requests_match, model3_matching
+from src import db, auth, requests_match, model3_matching, dashboard
 
 st.set_page_config(page_title="MedShare", page_icon="✚", layout="wide",
                    initial_sidebar_state="expanded")
@@ -49,9 +49,11 @@ html, body, [class*="css"]{ font-family:'Inter',system-ui,sans-serif; }
 [data-testid="stCaptionContainer"], .stCaption{ color:var(--muted) !important; }
 [data-testid="stNumberInput"] [data-baseweb="input"], [data-testid="stNumberInput"] [data-baseweb="base-input"],
 [data-baseweb="select"] > div, [data-testid="stTextInput"] [data-baseweb="input"]{
-  background:var(--field) !important; border-color:var(--line) !important; }
+  background:var(--field) !important; border:1px solid var(--line) !important; border-radius:8px !important;
+  min-height:52px !important; }
 [data-testid="stNumberInput"] input, [data-testid="stTextInput"] input{
-  background:var(--field) !important; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important; }
+  background:var(--field) !important; color:var(--ink) !important; -webkit-text-fill-color:var(--ink) !important;
+  font-size:1.05rem !important; }
 [data-testid="stNumberInput"] button{ background:var(--surface) !important; color:var(--ink) !important; border-color:var(--line) !important; }
 [data-baseweb="select"] *{ color:var(--ink) !important; }
 .brandmark{ display:flex; align-items:center; gap:10px; padding:10px 4px; line-height:1.4; min-height:44px; }
@@ -75,7 +77,7 @@ html, body, [class*="css"]{ font-family:'Inter',system-ui,sans-serif; }
 .drug{ font-weight:600; color:var(--ink); font-size:1.05rem; }
 .meta{ color:var(--muted); font-size:.82rem; margin-top:2px; }
 .route{ font-weight:600; color:var(--ink); } .arrow{ color:var(--brand); font-weight:700; padding:0 6px; }
-.total-box{ background:var(--field); border:1px solid var(--line); border-radius:8px; padding:0 12px; height:46px; margin-top:12px; display:flex; flex-direction:column; justify-content:center; }
+.total-box{ background:var(--field); border:1px solid var(--line); border-radius:8px; padding:0 12px; height:52px; margin-top:12px; display:flex; flex-direction:column; justify-content:center; }
 .total-l{ color:var(--muted); font-size:.6rem; text-transform:uppercase; letter-spacing:.05em; line-height:1.1; }
 .total-v{ color:var(--ink); font-weight:700; font-size:.95rem; font-family:'Fraunces',serif; line-height:1.1; white-space:nowrap; }
 .card{ background:var(--surface); border:1px solid var(--line); border-radius:14px; padding:14px 18px; margin-bottom:10px; }
@@ -85,15 +87,15 @@ section[data-testid="stSidebar"]{ background:var(--surface); border-right:1px so
 .stTabs [aria-selected="true"]{ color:var(--brand) !important; }
 .stTabs [data-baseweb="tab-highlight"]{ background:var(--brand); }
 div[role="radiogroup"]{ justify-content:flex-end; gap:10px; }
-.stButton>button{ border-radius:10px; font-weight:600; border:1px solid var(--line); padding:.5rem 1rem; min-height:46px; }
+.stButton>button{ border-radius:10px; font-weight:600; border:none; padding:.5rem 1rem; min-height:52px; }
 /* nudge buttons down to align with the total-value box */
 .stButton>button{ margin-top:12px; }
-.stButton>button[kind="primary"]{ background:var(--brand); border-color:var(--brand); color:#fff; }
+.stButton>button[kind="primary"]{ background:var(--brand); color:#fff; }
 .stButton>button[kind="primary"]:hover{ filter:brightness(0.92); }
-.stButton>button[kind="secondary"]{ background:var(--surface); color:var(--ink); }
+.stButton>button[kind="secondary"]{ background:var(--brand-soft); color:var(--brand); }
 div[data-testid="stVerticalBlockBorderWrapper"]{ background:var(--surface); border:1px solid var(--line) !important; border-radius:14px; }
-/* remove the border from nested block wrappers (the empty outlines above buttons/total box) */
-div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlockBorderWrapper"]{ border:none !important; background:transparent !important; }
+/* remove border only from nested st.container wrappers (the empty outlines), keep input field borders */
+div[data-testid="stHorizontalBlock"] div[data-testid="stVerticalBlockBorderWrapper"] div[data-testid="stVerticalBlockBorderWrapper"]{ border:none !important; background:transparent !important; }
 /* the total-box draws its own border; ensure its markdown wrapper adds none */
 [data-testid="stMarkdownContainer"]:has(.total-box){ border:none !important; background:transparent !important; padding:0 !important; }
 @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
@@ -238,7 +240,7 @@ def offer_card(r, prefix):
     with st.container(border=True):
         st.markdown(f"<div class='drug'>{r['drug']} {badge}</div>"
                     f"<div class='meta'><span class='route'>{pick}</span><span class='arrow'>→</span>"
-                    f"<span class='route'>{r['other']}</span> · {r['km']} km · match {r['score']:.2f}</div>",
+                    f"<span class='route'>{r['other']}</span> · {r['km']} km away</div>",
                     unsafe_allow_html=True)
         c1, c2, c3, c4, c5 = st.columns([1.4, 1.4, 1.5, 1, 1], vertical_alignment="top")
         maxq = int(max(int(r['available']), int(r['quantity'])))
@@ -318,8 +320,9 @@ def accept_card(r):
             st.rerun()
 
 st.write("")
-t1, t2, t3, t4, t5, t6, t7, t8 = st.tabs(["At-risk stock", "To offer (surplus)", "Requests I can fulfil",
-                                  "Offers to accept", "My requests", "My activity", "Expired stock", "Browse my stock"])
+t1, t2, t3, t4, t5, t6, t7, t8, t9 = st.tabs(["At-risk stock", "To offer (surplus)", "Requests I can fulfil",
+                                  "Offers to accept", "My requests", "My activity", "Expired stock", "Browse my stock",
+                                  "📊 Dashboard"])
 
 with t1:
     df = db.read_sql("""SELECT d.name AS drug, d.category, b.quantity, b.unit_price, b.expiry_date,
@@ -534,3 +537,86 @@ with t8:
         fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
                           font_color=ink, title_font_family="Fraunces", xaxis_title=None, yaxis_title="Units", bargap=0.35)
         st.plotly_chart(fig, use_container_width=True)
+
+with t9:
+    st.caption("A live snapshot of your pharmacy. These figures update automatically after every action.")
+    m = dashboard.metrics(pick)
+    ink = "#EEF4F1" if dark else "#16302B"; brand = "#3BB89C" if dark else "#0F6E5C"
+
+    # headline KPI cards
+    st.markdown(f"""
+    <div class="kpis">
+      <div class="kpi"><div class="v">₦{m['stock_value']:,.0f}</div><div class="l">Total stock value</div></div>
+      <div class="kpi {'crit' if m['at_risk_value']>0 else ''}"><div class="v">₦{m['at_risk_value']:,.0f}</div><div class="l">Value at risk of expiry</div></div>
+      <div class="kpi"><div class="v">₦{m['value_sold']:,.0f}</div><div class="l">Value redistributed</div></div>
+      <div class="kpi {'crit' if m['waste_value']>0 else ''}"><div class="v">₦{m['waste_value']:,.0f}</div><div class="l">Value lost to expiry</div></div>
+    </div>
+    """, unsafe_allow_html=True)
+    st.markdown(f"""
+    <div class="kpis">
+      <div class="kpi"><div class="v">{m['batches']:,}</div><div class="l">Batches in stock</div></div>
+      <div class="kpi"><div class="v">{m['at_risk_batches']:,}</div><div class="l">Batches at risk</div></div>
+      <div class="kpi"><div class="v">{m['transfers']:,}</div><div class="l">Completed transfers</div></div>
+      <div class="kpi"><div class="v">{(str(round(m['rescue_ratio']*100))+'%') if m['rescue_ratio'] is not None else '—'}</div><div class="l">Operational rescue ratio</div></div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    st.write("")
+    cda, cdb = st.columns(2)
+    with cda:
+        if m["top_sellers"].empty:
+            st.info("No sales in the last 90 days to rank best-sellers.")
+        else:
+            ts = m["top_sellers"].sort_values("units")
+            fig = px.bar(ts, x="units", y="drug", orientation="h", title="Top 5 best-selling drugs (90 days)")
+            fig.update_traces(marker_color=brand)
+            fig.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                              font_color=ink, title_font_family="Fraunces", xaxis_title="Units sold",
+                              yaxis_title=None, bargap=0.3, height=320, margin=dict(l=10, r=10, t=40, b=10))
+            st.plotly_chart(fig, use_container_width=True)
+    with cdb:
+        if m["by_category"].empty:
+            st.info("No stock to break down by category.")
+        else:
+            fig2 = px.pie(m["by_category"], names="category", values="value", title="Stock value by category", hole=0.55)
+            fig2.update_layout(plot_bgcolor="rgba(0,0,0,0)", paper_bgcolor="rgba(0,0,0,0)",
+                               font_color=ink, title_font_family="Fraunces", height=320, margin=dict(l=10, r=10, t=40, b=10))
+            st.plotly_chart(fig2, use_container_width=True)
+
+    st.divider()
+    st.markdown("**Download or email report**")
+    st.caption("Generate a PDF of this dashboard for your records, or send it to an email address.")
+    try:
+        pdf_bytes = dashboard.build_pdf(pick, f"{pick} · {me['area']}")
+        fname = f"MedShare_{pick}_{pd.Timestamp.today():%Y%m%d}.pdf"
+        dc1, dc2, dc3 = st.columns([1.1, 1.6, 1.1], vertical_alignment="bottom")
+        with dc1:
+            st.download_button("⬇ Download PDF", data=pdf_bytes, file_name=fname,
+                               mime="application/pdf", type="primary", use_container_width=True)
+        # prefill with the saved pharmacy email if present
+        saved_email = db.read_sql("SELECT email FROM pharmacies WHERE pharmacy_id=:p", {"p": pick}).iloc[0]["email"]
+        with dc2:
+            to_email = st.text_input("Send to email", value=(saved_email or ""), key="rep_email",
+                                     placeholder="pharmacy@example.com", label_visibility="collapsed")
+        with dc3:
+            if st.button("✉ Email report", use_container_width=True):
+                from src import emailer
+                if not to_email:
+                    st.warning("Enter an email address first.")
+                elif not emailer.is_configured():
+                    st.warning("Email isn't set up yet. Add the SMTP secrets to enable sending.")
+                else:
+                    try:
+                        emailer.send_report(
+                            to_email, f"MedShare report — {pick}",
+                            f"Attached is the latest MedShare dashboard report for {pick} ({me['area']}).",
+                            pdf_bytes, fname)
+                        # remember the address for next time
+                        db.run_sql("UPDATE pharmacies SET email=:e WHERE pharmacy_id=:p",
+                                   {"e": to_email, "p": pick})
+                        st.success(f"Report sent to {to_email}.")
+                    except Exception as ex:
+                        st.error(f"Could not send: {ex}")
+    except Exception as e:
+        st.warning("PDF generation needs the reportlab package. Add `reportlab` to requirements.txt and reboot the app.")
+
