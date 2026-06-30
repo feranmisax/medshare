@@ -26,16 +26,23 @@ def main():
         print("No pharmacies have an email on file. Nothing to send.")
         return
 
-    stamp = pd.Timestamp.today().strftime("%Y%m%d")
-    period = pd.Timestamp.today().strftime("%B %Y")
+    # previous calendar month window [first day prev month, first day this month)
+    today = pd.Timestamp.today().normalize()
+    this_month_start = today.replace(day=1)
+    prev_month_end = this_month_start                      # exclusive upper bound
+    prev_month_start = (this_month_start - pd.Timedelta(days=1)).replace(day=1)
+    period_label = prev_month_start.strftime("%B %Y")
+    stamp = prev_month_start.strftime("%Y%m")
+    period = (prev_month_start.to_pydatetime(), prev_month_end.to_pydatetime(), period_label)
+
     sent, failed = 0, 0
     for _, p in targets.iterrows():
         pid = p["pharmacy_id"]
         try:
-            pdf = dashboard.build_pdf(pid, f"{pid} · {p['area']}")
-            plain, html = emailer.report_email_body(pid, p["area"], period, monthly=True)
+            pdf = dashboard.build_pdf(pid, f"{pid} · {p['area']}", period=period)
+            plain, html = emailer.report_email_body(pid, p["area"], period_label, monthly=True)
             emailer.send_report(
-                p["email"], f"MedShare monthly report — {pid} ({period})",
+                p["email"], f"MedShare statement — {pid} ({period_label})",
                 plain, pdf, f"MedShare_{pid}_{stamp}.pdf", body_html=html)
             print(f"  sent -> {pid} ({p['email']})")
             sent += 1
