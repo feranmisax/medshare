@@ -27,15 +27,16 @@ def main():
         return
 
     stamp = pd.Timestamp.today().strftime("%Y%m%d")
+    period = pd.Timestamp.today().strftime("%B %Y")
     sent, failed = 0, 0
     for _, p in targets.iterrows():
         pid = p["pharmacy_id"]
         try:
             pdf = dashboard.build_pdf(pid, f"{pid} · {p['area']}")
+            plain, html = emailer.report_email_body(pid, p["area"], period, monthly=True)
             emailer.send_report(
-                p["email"], f"MedShare monthly report — {pid}",
-                f"Attached is your monthly MedShare dashboard report for {pid} ({p['area']}).",
-                pdf, f"MedShare_{pid}_{stamp}.pdf")
+                p["email"], f"MedShare monthly report — {pid} ({period})",
+                plain, pdf, f"MedShare_{pid}_{stamp}.pdf", body_html=html)
             print(f"  sent -> {pid} ({p['email']})")
             sent += 1
         except Exception as ex:

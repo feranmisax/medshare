@@ -607,10 +607,11 @@ with t9:
                     st.warning("Email isn't set up yet. Add the SMTP secrets to enable sending.")
                 else:
                     try:
+                        plain, html = emailer.report_email_body(
+                            pick, me['area'], pd.Timestamp.today().strftime("%B %Y"))
                         emailer.send_report(
                             to_email, f"MedShare report — {pick}",
-                            f"Attached is the latest MedShare dashboard report for {pick} ({me['area']}).",
-                            pdf_bytes, fname)
+                            plain, pdf_bytes, fname, body_html=html)
                         # remember the address for next time
                         db.run_sql("UPDATE pharmacies SET email=:e WHERE pharmacy_id=:p",
                                    {"e": to_email, "p": pick})
@@ -619,4 +620,3 @@ with t9:
                         st.error(f"Could not send: {ex}")
     except Exception as e:
         st.warning("PDF generation needs the reportlab package. Add `reportlab` to requirements.txt and reboot the app.")
-
