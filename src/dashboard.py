@@ -124,7 +124,9 @@ def period_metrics(pid, start, end):
           (SELECT COUNT(*) FROM expired_stock
              WHERE pharmacy_id=:p AND logged_at >= :s AND logged_at < :e) AS waste_batches,
           (SELECT COALESCE(SUM(units_sold),0) FROM sales_daily
-             WHERE pharmacy_id=:p AND sale_date >= :s AND sale_date < :e) AS units_sold
+             WHERE pharmacy_id=:p AND sale_date >= :s AND sale_date < :e) AS units_sold,
+          (SELECT COALESCE(SUM(units_sold * unit_price),0) FROM sales_daily
+             WHERE pharmacy_id=:p AND sale_date >= :s AND sale_date < :e) AS sales_value
     """, {"p": pid, "s": start, "e": end}).iloc[0]
     m["value_sold"] = float(row["value_sold"])
     m["value_bought"] = float(row["value_bought"])
@@ -133,6 +135,7 @@ def period_metrics(pid, start, end):
     m["waste_value"] = float(row["waste_value"])
     m["waste_batches"] = int(row["waste_batches"])
     m["units_sold"] = int(row["units_sold"])
+    m["sales_value"] = float(row["sales_value"])
 
     # best sellers within the period
     m["top_sellers"] = db.read_sql("""
@@ -222,6 +225,7 @@ def build_pdf(pid, label, period=None):
                ["Completed transfers", f"{m['transfers']:,}"],
                ["Commission paid", naira(m["commission"])],
                ["Units sold", f"{m['units_sold']:,}"],
+               ["Sales value", naira(m["sales_value"])],
                ["Value lost to expiry", naira(m["waste_value"])],
                ["Batches expired", f"{m['waste_batches']:,}"]]
         if m["rescue_ratio"] is not None:
