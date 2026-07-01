@@ -23,7 +23,25 @@ def read_sql(sql: str, params: dict | None = None) -> pd.DataFrame:
 
 
 def write_df(df: pd.DataFrame, table: str, if_exists: str = "append"):
-    """Bulk-load a DataFrame into a table."""
+    """Bulk-load a DataFrame into a table.
+
+    Only columns that exist in the target table AND are writable (not database-
+    generated) are sent, and only dataframe columns present in the table are kept.
+    This prevents silent column drops and avoids errors when a table has a
+    GENERATED column that cannot be inserted into.
+    """
+    try:
+        cols = read_sql("""
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = :t
+              AND (is_generated IS NULL OR is_generated <> 'ALWAYS')
+        """, {"t": table})["column_name"].tolist()
+        if cols:
+            keep = [c for c in df.columns if c in cols]
+            if keep:
+                df = df[keep]
+    except Exception:
+        pass  # if introspection fails, fall back to writing the df as-is
     df.to_sql(table, engine, if_exists=if_exists, index=False, method="multi", chunksize=1000)
 
 

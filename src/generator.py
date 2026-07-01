@@ -222,6 +222,10 @@ def make_sales_and_batches(pharmacies, catalogue, drugs_long):
             did = int(RNG.choice(cat_drug_ids[c]))   # catalogue row index == drug_id-1 later
             weekly = max(1.0, demand_by_cat[c] * scale * RNG.uniform(0.4, 1.6))
             daily_mu = weekly / 7.0
+            # per pharmacy-drug price, fixed for the series (used for sales value + batches)
+            # small cross-pharmacy variation (±20%) around the category base price
+            price = max(10.0, price_by_cat[c] * RNG.uniform(0.8, 1.2))
+            cost = price * RNG.uniform(0.55, 0.8)
             # intermittency: slower movers get more zero-days
             p_zero = float(np.clip(0.05 + 0.25 * (EXPIRY_PROPENSITY[c] - 0.5), 0.0, 0.6))
             # negative-binomial via gamma-poisson
@@ -232,10 +236,8 @@ def make_sales_and_batches(pharmacies, catalogue, drugs_long):
                 else:
                     lam = daily_mu * season[k] * RNG.gamma(r_disp, 1.0 / r_disp)
                     units = int(RNG.poisson(max(lam, 0.01)))
-                sales_rows.append((ph["pharmacy_id"], did, d.date(), units))
+                sales_rows.append((ph["pharmacy_id"], did, d.date(), units, round(price, 2)))
             # inventory: 1-2 batches with realistic expiry windows
-            price = max(10.0, price_by_cat[c] * RNG.uniform(0.6, 1.5))
-            cost = price * RNG.uniform(0.55, 0.8)
             for _b in range(int(RNG.integers(1, 3))):
                 shelf_days = int(RNG.integers(60, 540))
                 received = end - pd.Timedelta(days=int(RNG.integers(0, 120)))
@@ -250,7 +252,7 @@ def make_sales_and_batches(pharmacies, catalogue, drugs_long):
                     received_date=received.date(),
                     is_synthetic=bool(ph["is_synthetic"]),
                 ))
-    sales = pd.DataFrame(sales_rows, columns=["pharmacy_id","drug_id","sale_date","units_sold"])
+    sales = pd.DataFrame(sales_rows, columns=["pharmacy_id","drug_id","sale_date","units_sold","unit_price"])
     batches = pd.DataFrame(batch_rows)
     return sales, batches
 
