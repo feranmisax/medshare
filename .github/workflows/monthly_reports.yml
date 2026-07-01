@@ -1,4 +1,5 @@
 name: Monthly pharmacy reports
+# re-register schedule
 
 # TEMPORARY TEST: runs every 10 minutes to prove the schedule trigger fires.
 # REVERT to "0 7 1 * *" once you see a run tagged "via schedule".
