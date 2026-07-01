@@ -1,11 +1,9 @@
 name: Monthly pharmacy reports
-# re-register schedule
 
-# TEMPORARY TEST: runs every 10 minutes to prove the schedule trigger fires.
-# REVERT to "0 7 1 * *" once you see a run tagged "via schedule".
+# Runs at 07:00 UTC on the 1st of every month, and can be triggered manually.
 on:
   schedule:
-    - cron: "*/10 * * * *"
+    - cron: "0 7 1 * *"
   workflow_dispatch: {}
 
 jobs:
