@@ -56,7 +56,7 @@ def run():
                b.pharmacy_id AS source_id, b.drug_id, b.quantity, b.unit_price, b.expiry_date
         FROM expiry_risk_scores r
         JOIN inventory_batches b ON b.batch_id = r.batch_id
-        WHERE r.score_date = CURRENT_DATE AND r.risk_tier IN ('High','Critical')
+        WHERE r.score_date = (SELECT MAX(score_date) FROM expiry_risk_scores) AND r.risk_tier IN ('High','Critical')
           AND b.is_expired = FALSE AND b.quantity > 0 AND b.expiry_date > CURRENT_DATE
     """)
     fc = db.read_sql("""
@@ -141,7 +141,7 @@ def rematch_batch(batch_id, exclude_pharmacies):
         SELECT r.batch_id, r.risk_probability, b.pharmacy_id AS source_id, b.drug_id,
                b.quantity, b.unit_price, b.expiry_date
         FROM expiry_risk_scores r JOIN inventory_batches b ON b.batch_id = r.batch_id
-        WHERE r.batch_id = :b AND r.score_date = CURRENT_DATE
+        WHERE r.batch_id = :b AND r.score_date = (SELECT MAX(score_date) FROM expiry_risk_scores)
           AND b.is_expired = FALSE AND b.quantity > 0 AND b.expiry_date > CURRENT_DATE
     """, {"b": int(batch_id)})
     if info.empty:

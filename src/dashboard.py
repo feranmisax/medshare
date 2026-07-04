@@ -28,10 +28,10 @@ def metrics(pid):
              WHERE pharmacy_id=:p AND is_expired=FALSE AND quantity>0) AS batches,
           (SELECT COALESCE(SUM(b.quantity*b.unit_price),0)
              FROM expiry_risk_scores r JOIN inventory_batches b ON b.batch_id=r.batch_id
-             WHERE b.pharmacy_id=:p AND r.score_date=CURRENT_DATE
+             WHERE b.pharmacy_id=:p AND r.score_date=(SELECT MAX(score_date) FROM expiry_risk_scores)
                AND r.risk_tier IN ('High','Critical')) AS at_risk_value,
           (SELECT COUNT(*) FROM expiry_risk_scores r JOIN inventory_batches b ON b.batch_id=r.batch_id
-             WHERE b.pharmacy_id=:p AND r.score_date=CURRENT_DATE
+             WHERE b.pharmacy_id=:p AND r.score_date=(SELECT MAX(score_date) FROM expiry_risk_scores)
                AND r.risk_tier IN ('High','Critical')) AS at_risk_batches
     """, {"p": pid}).iloc[0]
     m["stock_value"] = float(row["stock_value"])

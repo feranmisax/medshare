@@ -86,7 +86,7 @@ def _load_atrisk():
                b.quantity, b.unit_price, b.expiry_date
         FROM expiry_risk_scores r
         JOIN inventory_batches b ON b.batch_id = r.batch_id
-        WHERE r.score_date = CURRENT_DATE AND r.risk_tier IN ('High','Critical')
+        WHERE r.score_date = (SELECT MAX(score_date) FROM expiry_risk_scores) AND r.risk_tier IN ('High','Critical')
           AND b.is_expired = FALSE AND b.quantity > 0 AND b.expiry_date > CURRENT_DATE
     """)
 

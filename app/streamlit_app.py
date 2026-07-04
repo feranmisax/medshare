@@ -209,7 +209,7 @@ k = db.read_sql("""
   SELECT
     (SELECT COUNT(*) FROM inventory_batches WHERE pharmacy_id=:p AND is_expired=FALSE AND quantity>0) AS my_batches,
     (SELECT COUNT(*) FROM expiry_risk_scores r JOIN inventory_batches b ON b.batch_id=r.batch_id
-      WHERE b.pharmacy_id=:p AND r.score_date=CURRENT_DATE AND r.risk_tier IN ('High','Critical')) AS at_risk,
+      WHERE b.pharmacy_id=:p AND r.score_date=(SELECT MAX(score_date) FROM expiry_risk_scores) AND r.risk_tier IN ('High','Critical')) AS at_risk,
     (SELECT COUNT(*) FROM redistribution_recommendations
       WHERE source_pharmacy_id=:p AND status='RECOMMENDED') AS to_act,
     (SELECT COUNT(*) FROM redistribution_recommendations
@@ -329,7 +329,7 @@ with t1:
             ROUND(r.risk_probability::numeric,2) AS risk, r.risk_tier
         FROM expiry_risk_scores r JOIN inventory_batches b ON b.batch_id=r.batch_id
         JOIN drugs d ON d.drug_id=b.drug_id
-        WHERE b.pharmacy_id=:p AND r.score_date=CURRENT_DATE AND r.risk_tier IN ('High','Critical')
+        WHERE b.pharmacy_id=:p AND r.score_date=(SELECT MAX(score_date) FROM expiry_risk_scores) AND r.risk_tier IN ('High','Critical')
         ORDER BY r.risk_probability DESC""", {"p": pick})
     if df.empty:
         st.success("Nothing at risk right now.")
