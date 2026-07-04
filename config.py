@@ -42,3 +42,6 @@ MODELS_DIR.mkdir(exist_ok=True)
 # Risk tiers (calibrated-probability cutoffs for Model 1)
 RISK_TIERS = [("Low", 0.0, 0.33), ("Medium", 0.33, 0.66), ("High", 0.66, 1.01)]
 CRITICAL_DAYS = 7  # rule-based override: <= this many days to expiry + surplus => Critical
+MIN_REDISTRIBUTABLE_DAYS = 3  # batches with fewer days left than this cannot be redistributed
+                              # in time (match + offer + transfer + use), so they are treated as
+                              # a loss and excluded from at-risk redistribution listings.
