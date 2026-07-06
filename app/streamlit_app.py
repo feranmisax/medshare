@@ -212,7 +212,9 @@ k = db.read_sql("""
       WHERE b.pharmacy_id=:p AND r.score_date=(SELECT MAX(score_date) FROM expiry_risk_scores) AND r.risk_tier IN ('High','Critical')
         AND b.expiry_date >= CURRENT_DATE + INTERVAL '3 days') AS at_risk,
     (SELECT COUNT(*) FROM redistribution_recommendations
-      WHERE source_pharmacy_id=:p AND status='RECOMMENDED') AS to_act,
+      WHERE source_pharmacy_id=:p AND status='RECOMMENDED' AND origin='SURPLUS') AS to_act,
+    (SELECT COUNT(*) FROM redistribution_recommendations
+      WHERE source_pharmacy_id=:p AND status='RECOMMENDED' AND origin='REQUEST') AS to_fulfil,
     (SELECT COUNT(*) FROM redistribution_recommendations
       WHERE target_pharmacy_id=:p AND status='OFFERED') AS offers,
     (SELECT COALESCE(SUM(commission_amount),0) FROM transfers t
@@ -225,6 +227,7 @@ st.markdown(f"""
   <div class="kpi"><div class="v">{int(k['my_batches'])}</div><div class="l">Batches in stock</div></div>
   <div class="kpi {'crit' if int(k['at_risk'])>0 else ''}"><div class="v">{int(k['at_risk'])}</div><div class="l">At risk</div></div>
   <div class="kpi"><div class="v">{int(k['to_act'])}</div><div class="l">To offer</div></div>
+  <div class="kpi {'alert' if int(k['to_fulfil'])>0 else ''}"><div class="v">{int(k['to_fulfil'])}</div><div class="l">Requests to fulfil</div></div>
   <div class="kpi {'alert' if int(k['offers'])>0 else ''}"><div class="v">{int(k['offers'])}</div><div class="l">Offers to accept</div></div>
 </div>
 """, unsafe_allow_html=True)
