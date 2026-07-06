@@ -449,7 +449,8 @@ with t5:
                             notify(pick, f"You cancelled your request for {r['drug']}.")
                             db.run_sql("""DELETE FROM notifications WHERE related_rec_id IN
                                           (SELECT rec_id FROM redistribution_recommendations
-                                           WHERE request_id=:rq AND origin='REQUEST') AND read_at IS NOT NULL""", {"rq": int(r["request_id"])})
+                                           WHERE request_id=:rq AND origin='REQUEST'
+                                             AND status IN ('RECOMMENDED','OFFERED'))""", {"rq": int(r["request_id"])})
                             db.run_sql("""DELETE FROM redistribution_recommendations
                                           WHERE request_id=:rq AND origin='REQUEST' AND status IN ('RECOMMENDED','OFFERED')""",
                                        {"rq": int(r["request_id"])})
