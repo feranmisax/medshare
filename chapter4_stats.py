@@ -7,6 +7,14 @@ so these match Power BI and the live demo).
 
 Run:  python chapter4_stats.py
 """
+import sys
+# Force UTF-8 stdout so the Naira sign renders when redirected to a file on
+# Windows (default cp1252 cannot encode it). No effect on normal console runs.
+try:
+    sys.stdout.reconfigure(encoding="utf-8")
+except Exception:
+    pass
+
 from src import db
 
 
@@ -91,8 +99,10 @@ rescued = gv
 lost = one("SELECT COALESCE(SUM(value_lost),0) FROM expired_stock")
 denom = rescued + lost
 print(f"  {'rescued / (rescued + lost)':<42} {(rescued/denom*100 if denom else 0):.1f}%")
-print("  NOTE: cite the evaluate.py figure (~51% vs baseline) as the headline,")
-print("        not this operational ratio.")
+print("  NOTE: this in-app ratio is 0 on a fresh build (no accepted transfers yet).")
+print("        The HEADLINE waste-reduction result comes from evaluate.py (Monte")
+print("        Carlo), reported as a curve over acceptance rate with its break-even,")
+print("        NOT as this operational ratio and NOT as any fixed percentage here.")
 
 print("\n" + "=" * 60)
 print("Done. Copy this whole output for Chapter 4.")

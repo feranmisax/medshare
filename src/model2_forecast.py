@@ -114,9 +114,90 @@ def run():
     print("Methods used:", out["method"].value_counts().to_dict())
 
 
+
+
+def backtest(holdout_days=30, min_history=60):
+    """Forecast-accuracy backtest (Chapter 3, Table 3.8).
+
+    Temporal hold-out: for each (pharmacy, drug) series with enough history, hide
+    the last `holdout_days`, fit on the earlier portion, forecast the hold-out,
+    and score point + probabilistic accuracy:
+
+      MASE  — Mean Absolute Scaled Error (scaled by the in-sample naive-forecast
+              MAE, so it is comparable across series and scale-free; < 1 beats naive).
+      WAPE  — Weighted Absolute Percentage Error (sum|err| / sum|actual|), robust to
+              the zeros that break ordinary MAPE on intermittent demand.
+      Pinball (q10/q50/q90) — the quantile loss, scoring the whole predictive
+              distribution rather than just the point forecast.
+      Coverage(80%) — share of hold-out actuals falling within [q10, q90]; a
+              well-calibrated 80% interval should cover ~80%.
+    """
+    series = db.read_sql("""
+        SELECT pharmacy_id, drug_id, sale_date, units_sold
+        FROM sales_daily ORDER BY pharmacy_id, drug_id, sale_date
+    """)
+    if series.empty:
+        print("No sales data. Run the generator first.")
+        return
+
+    mase_list, wape_num, wape_den = [], 0.0, 0.0
+    pin = {0.1: [], 0.5: [], 0.9: []}
+    covered = tot = 0
+    scored = 0
+
+    for (pid, did), g in series.groupby(["pharmacy_id", "drug_id"]):
+        y = g["units_sold"].values.astype(float)
+        if len(y) < min_history + holdout_days:
+            continue
+        train, test = y[:-holdout_days], y[-holdout_days:]
+        mu, sd, _ = forecast_series(train)
+
+        # point forecast over the hold-out (per-day mean)
+        yhat = np.full(holdout_days, max(mu, 0.0))
+
+        # MASE: scale by in-sample naive (lag-1) MAE of the training series
+        naive_mae = np.mean(np.abs(np.diff(train))) if len(train) > 1 else np.nan
+        if naive_mae and naive_mae > 0:
+            mase_list.append(np.mean(np.abs(test - yhat)) / naive_mae)
+
+        # WAPE (accumulate across series)
+        wape_num += np.sum(np.abs(test - yhat))
+        wape_den += np.sum(np.abs(test))
+
+        # pinball loss at each quantile (using the normal predictive quantiles)
+        q10 = max(mu - 1.2816 * sd, 0.0)
+        q50 = max(mu, 0.0)
+        q90 = max(mu + 1.2816 * sd, 0.0)
+        for q, qhat in [(0.1, q10), (0.5, q50), (0.9, q90)]:
+            e = test - qhat
+            pin[q].extend(np.where(e >= 0, q * e, (q - 1) * e).tolist())
+
+        # 80% interval coverage
+        covered += int(np.sum((test >= q10) & (test <= q90)))
+        tot += holdout_days
+        scored += 1
+
+    if scored == 0:
+        print(f"No series had >= {min_history + holdout_days} days of history to backtest.")
+        return
+
+    mase = float(np.mean(mase_list)) if mase_list else float("nan")
+    wape = wape_num / wape_den if wape_den else float("nan")
+    print(f"Model 2 forecast-accuracy backtest (temporal hold-out = last {holdout_days} days)")
+    print(f"  Series scored:            {scored}")
+    print(f"  MASE  (mean, <1 = beats naive):   {mase:.3f}")
+    print(f"  WAPE  (weighted abs % error):     {wape:.1%}")
+    print(f"  Pinball q10 / q50 / q90:          "
+          f"{np.mean(pin[0.1]):.3f} / {np.mean(pin[0.5]):.3f} / {np.mean(pin[0.9]):.3f}")
+    print(f"  80% interval coverage:            {covered/tot:.1%}  (target ~80%)")
+
+
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", action="store_true")
+    ap.add_argument("--backtest", action="store_true",
+                    help="score forecast accuracy on a temporal hold-out (Table 3.8)")
     a = ap.parse_args()
-    if a.run: run()
-    else: print("Use --run")
+    if a.backtest: backtest()
+    elif a.run: run()
+    else: print("Use --run (write forecasts) or --backtest (score accuracy)")

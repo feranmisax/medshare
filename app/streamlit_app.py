@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
+from datetime import date, timedelta
 import pandas as pd
 import streamlit as st
 import streamlit.components.v1 as components
@@ -324,9 +325,52 @@ def accept_card(r):
             st.rerun()
 
 st.write("")
-t1, t2, t3, t4, t5, t6, t7, t8, t9 = st.tabs(["At-risk stock", "To offer (surplus)", "Requests I can fulfil",
-                                  "Offers to accept", "My requests", "My activity", "Expired stock", "Browse my stock",
-                                  "📊 Dashboard"])
+t0, t1, t2, t3, t4, t5, t6, t7, t8, t9 = st.tabs(["➕ Log new stock", "At-risk stock", "To offer (surplus)",
+                                  "Requests I can fulfil", "Offers to accept", "My requests", "My activity",
+                                  "Expired stock", "Browse my stock", "📊 Dashboard"])
+
+with t0:
+    st.caption("Log a newly received batch. It enters your live inventory immediately and is "
+               "risk-assessed at the next scoring run (nightly pipeline, or manual re-score).")
+    _drugs = db.read_sql("SELECT drug_id, name, category FROM drugs ORDER BY name")
+    with st.container(border=True):
+        r1c1, r1c2, r1c3 = st.columns([2.5, 1, 1])
+        d_new = r1c1.selectbox("Drug", options=list(_drugs["drug_id"]),
+                               format_func=lambda i: _drugs.set_index("drug_id").loc[i, "name"],
+                               key="newstock_drug")
+        qty_new = r1c2.number_input("Quantity", 1, value=100, step=1, key="newstock_qty")
+        # sensible default: cost below price
+        cost_new = r1c3.number_input("Unit cost ₦", 0.0, value=0.0, step=10.0, key="newstock_cost")
+
+        r2c1, r2c2, r2c3 = st.columns([1, 1, 1])
+        price_new = r2c1.number_input("Unit price ₦", 0.0, value=0.0, step=10.0, key="newstock_price")
+        mfg_new = r2c2.date_input("Manufacture date", value=date.today() - timedelta(days=30),
+                                  key="newstock_mfg")
+        exp_new = r2c3.date_input("Expiry date", value=date.today() + timedelta(days=365),
+                                  key="newstock_exp")
+
+        if st.button("Log batch", type="primary", key="newstock_submit"):
+            if exp_new <= mfg_new:
+                st.error("Expiry date must be after the manufacture date.")
+            elif exp_new <= date.today():
+                st.error("This batch has already expired — check the expiry date.")
+            elif price_new <= 0:
+                st.error("Enter a unit price greater than zero.")
+            else:
+                db.run_sql("""INSERT INTO inventory_batches
+                    (pharmacy_id, drug_id, quantity, unit_cost, unit_price,
+                     manufacture_date, expiry_date, received_date, is_synthetic, is_expired)
+                    VALUES (:p, :d, :q, :cost, :price, :mfg, :exp, :recv, FALSE, FALSE)""",
+                    {"p": pick, "d": int(d_new), "q": int(qty_new),
+                     "cost": (None if cost_new == 0 else float(cost_new)),
+                     "price": float(price_new), "mfg": mfg_new, "exp": exp_new,
+                     "recv": date.today()})
+                _dn = _drugs.set_index("drug_id").loc[int(d_new), "name"]
+                _days = (exp_new - date.today()).days
+                notify(pick, f"Logged {int(qty_new)} units of {_dn} (expires in {_days} days).")
+                st.toast(f"Batch logged: {int(qty_new)} × {_dn}.")
+                st.success(f"Added to your live inventory. It will be risk-assessed at the next "
+                           f"scoring run. Expires in {_days} days.")
 
 with t1:
     df = db.read_sql("""SELECT d.name AS drug, d.category, b.quantity, b.unit_price, b.expiry_date,

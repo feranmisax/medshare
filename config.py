@@ -45,3 +45,48 @@ CRITICAL_DAYS = 7  # rule-based override: <= this many days to expiry + surplus 
 MIN_REDISTRIBUTABLE_DAYS = 3  # batches with fewer days left than this cannot be redistributed
                               # in time (match + offer + transfer + use), so they are treated as
                               # a loss and excluded from at-risk redistribution listings.
+
+# ---------------------------------------------------------------------------
+# Realistic, category-varying shelf lives (months) for batch expiry generation.
+# Different drug classes carry very different shelf lives; modelling this gives
+# the simulated shelf a realistic spread (most stock far from expiry, a minority
+# near-term) instead of everything clustered near expiry. (Chapter 3, §3.1.5.)
+# (low, high) months — a batch's shelf life is drawn uniformly in this range.
+SHELF_LIFE_MONTHS = {
+    "Antibiotics":            (18, 30),
+    "Antimalarials":          (18, 30),
+    "Analgesics":             (36, 60),
+    "Antihypertensives":      (24, 48),
+    "Antidiabetics":          (24, 48),
+    "Antacids/GI":            (24, 42),
+    "Vitamins/Supplements":   (24, 42),
+    "Cough/Cold":             (18, 36),
+}
+DEFAULT_SHELF_LIFE_MONTHS = (24, 42)
+
+# Fraction of batches deliberately drawn "near-term" (already partway through
+# shelf life) so that a realistic minority of stock is genuinely at risk during
+# the simulation window while the majority sits comfortably far from expiry.
+NEAR_TERM_BATCH_FRACTION = 0.30
+
+# Category x month seasonal demand multipliers (rainy-season antimalarial uplift,
+# cough/cold uplift in harmattan, etc.). Used by BOTH the generator and the
+# feature builder so seasonal_index is a real, varying feature — not a constant.
+# Month index 1..12 -> multiplier. Values default to 1.0 where unspecified.
+SEASONAL_BY_CATEGORY = {
+    "Antimalarials":  {5:1.25, 6:1.35, 7:1.40, 8:1.35, 9:1.25, 10:1.15},   # rainy season
+    "Cough/Cold":     {11:1.20, 12:1.30, 1:1.30, 2:1.20},                    # harmattan
+    "Antibiotics":    {6:1.10, 7:1.15, 8:1.10},
+}
+
+# NAFDAC validation-only integration (Chapter 3, §3.1.4). If a curated snapshot
+# file is present, the generator will VALIDATE its catalogue names against it
+# (cross-check that each drug is a registered product) and optionally enrich
+# with registration metadata. If the file is absent, the pipeline is unaffected.
+NAFDAC_CATALOGUE_FILE = DATA_DIR / "nafdac_catalogue.csv"
+
+# Evaluation sweeps (Chapter 3, §3.5.3-3.5.4)
+ACCEPTANCE_SWEEP = [0.20, 0.30, 0.40, 0.50, 0.60, 0.70, 0.80, 0.90]
+B1_CLEAR_SWEEP   = [0.05, 0.10, 0.15, 0.20, 0.25, 0.30]
+DEFAULT_ACCEPTANCE = 0.64   # survey-anchored point estimate (reported within the curve)
+DEFAULT_B1_CLEAR   = 0.15   # assumed status-quo informal-clearance fraction

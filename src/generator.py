@@ -18,6 +18,8 @@ import numpy as np
 import pandas as pd
 import config
 from src import db
+from src.seasonal import seasonal_index
+from src import nafdac
 
 RNG = np.random.default_rng(config.RANDOM_SEED)
 
@@ -206,9 +208,8 @@ def make_sales_and_batches(pharmacies, catalogue, drugs_long):
     end = pd.Timestamp.today().normalize()
     start = end - pd.Timedelta(days=config.SIM_DAYS - 1)
     dates = pd.date_range(start, end, freq="D")
-    # seasonal index: mild antimalarial uplift mid-year (rainy season proxy)
-    doy = dates.dayofyear.values
-    season = 1.0 + 0.15 * np.sin(2 * np.pi * (doy - 120) / 365.0)
+    # Category x month seasonal multipliers, shared with the feature builder so the
+    # seasonal_index feature the model learns from is exactly the demand driver.
 
     sales_rows, batch_rows = [], []
     for _, ph in pharmacies.iterrows():
@@ -234,14 +235,23 @@ def make_sales_and_batches(pharmacies, catalogue, drugs_long):
                 if RNG.random() < p_zero:
                     units = 0
                 else:
-                    lam = daily_mu * season[k] * RNG.gamma(r_disp, 1.0 / r_disp)
+                    lam = daily_mu * seasonal_index(c, d) * RNG.gamma(r_disp, 1.0 / r_disp)
                     units = int(RNG.poisson(max(lam, 0.01)))
                 sales_rows.append((ph["pharmacy_id"], did, d.date(), units, round(price, 2)))
-            # inventory: 1-2 batches with realistic expiry windows
+            # inventory: 1-2 batches with realistic, CATEGORY-VARYING shelf lives.
+            lo_m, hi_m = config.SHELF_LIFE_MONTHS.get(c, config.DEFAULT_SHELF_LIFE_MONTHS)
             for _b in range(int(RNG.integers(1, 3))):
-                shelf_days = int(RNG.integers(60, 540))
-                received = end - pd.Timedelta(days=int(RNG.integers(0, 120)))
-                manufacture = received - pd.Timedelta(days=int(RNG.integers(30, 200)))
+                shelf_days = int(RNG.integers(int(lo_m * 30), int(hi_m * 30) + 1))
+                manufacture = end - pd.Timedelta(days=int(RNG.integers(0, int(shelf_days * 0.5))))
+                # A minority of batches are deliberately near-term (received long ago,
+                # so little shelf life remains during the sim); the majority are fresh.
+                if RNG.random() < config.NEAR_TERM_BATCH_FRACTION:
+                    # near-term: only a small slice of shelf life remains
+                    remaining_days = int(RNG.integers(5, 90))
+                    received = end - pd.Timedelta(days=max(shelf_days - remaining_days, 0))
+                else:
+                    # fresh: received recently, most of shelf life ahead
+                    received = end - pd.Timedelta(days=int(RNG.integers(0, min(shelf_days // 3, 120) + 1)))
                 expiry = received + pd.Timedelta(days=shelf_days)
                 # quantity scaled to demand and propensity (overstock for expiry-prone)
                 qty = int(max(5, weekly * RNG.uniform(2, 8) * EXPIRY_PROPENSITY[c]))
@@ -266,9 +276,12 @@ def main():
 
     print("Building drug catalogue ...")
     catalogue = build_drug_catalogue(drugs_long)
+    # NAFDAC validation cross-check (optional; no-op if no snapshot file present).
+    catalogue = nafdac.validate_catalogue(catalogue)
     # clear & load drugs; drug_id will be assigned 1..N in insertion order
     db.run_sql("TRUNCATE drugs RESTART IDENTITY CASCADE;")
-    db.write_df(catalogue.assign(), "drugs")
+    _drug_cols = ["name", "category", "pack_size", "unit"]
+    db.write_df(catalogue[[c for c in _drug_cols if c in catalogue.columns]], "drugs")
     cat_db = db.read_sql("SELECT drug_id, name, category FROM drugs ORDER BY drug_id")
     # map our 0-based catalogue index -> real drug_id
     idx_to_id = {i: int(cat_db.iloc[i]["drug_id"]) for i in range(len(cat_db))}
