@@ -1,217 +1,210 @@
-# Inter-Pharmacy Drug Redistribution — Build Guide
+# MedShare — Inter-Pharmacy Drug Redistribution Framework
 
-A working implementation of the framework from your thesis: a calibrated data
-generator, three models (expiry-risk classifier, demand forecaster, redistribution
-matcher), a FastAPI backend, and a Streamlit pharmacist app — all on PostgreSQL.
+An integrated decision-support framework that helps community and hospital
+pharmacies redistribute surplus, near-expiry medicines to other pharmacies that
+need them — before the stock expires and the value is lost.
 
-You are on **Windows**, comfortable with the command line. Commands below use
-PowerShell. Run them from the project root (`pharma_redist`) unless told otherwise.
+The framework combines three models behind a single platform:
 
----
+1. **Expiry-risk classifier** — predicts which stock batches are likely to expire unsold.
+2. **Demand forecaster** — estimates near-term demand per pharmacy and drug, with uncertainty.
+3. **Redistribution matcher** — pairs at-risk surplus with pharmacies that can sell it in time.
 
-## 0. What you are building (the map)
+It is delivered as a PostgreSQL database, a FastAPI backend, and a Streamlit
+pharmacist application, evaluated by Monte Carlo simulation. This repository is the
+reference implementation accompanying the MSc thesis.
 
-```
- your cleaned survey  ─►  generator  ─►  PostgreSQL  ◄─►  3 models  ─►  recommendations
- (data/*.xlsx)            (synthetic        (all data)     (1,2,3)        │
-                           150-pharmacy                                   ▼
-                           network)                          FastAPI  +  Streamlit app
-                                                                  │
-                                                                  ▼
-                                                            evaluation (Monte Carlo)
-```
-
-Build order (each step works before the next):
-**setup → database → generator → Model 1 → Model 2 → Model 3 → pipeline → app → evaluation.**
+> **Scope.** The system is evaluated on a **calibrated synthetic network** anchored to
+> a 39-pharmacy survey. Reported impact figures are **simulation-based projections**,
+> not measured field outcomes. See [Data & honesty](#data--honesty).
 
 ---
 
-## 1. One-time setup
+## Architecture
 
-### 1a. Install PostgreSQL (local)
-1. Download the installer from postgresql.org (the EDB Windows installer).
-2. During install, set a password for the `postgres` user — remember it.
-3. After install, open **pgAdmin** (or `psql`) and create the database:
-   ```sql
-   CREATE DATABASE pharma_redist;
-   ```
-   Or from PowerShell (psql is added to PATH by the installer):
-   ```powershell
-   psql -U postgres -c "CREATE DATABASE pharma_redist;"
-   ```
-
-> Later, for the pilot, swap to a free cloud Postgres (Neon or Supabase). You will
-> only change `DATABASE_URL` in `.env` — no code changes.
-
-### 1b. Python environment
-```powershell
-cd pharma_redist
-py -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
 ```
-(If activation is blocked: `Set-ExecutionPolicy -Scope Process RemoteSigned` then retry.)
-
-### 1c. Configuration
-```powershell
-copy .env.example .env
-```
-Open `.env` and set `DATABASE_URL` to your password, e.g.:
-```
-DATABASE_URL=postgresql+psycopg2://postgres:YOURPASSWORD@localhost:5432/pharma_redist
+ Survey (39 pharmacies, real)          +------------------------------+
+   data/*.xlsx  --> generator -->      |      PostgreSQL database       |
+                    (hybrid 150-        |  stock . sales . scores .      |
+                     pharmacy network)  |  forecasts . recommendations . |
+                                        |  transfers . requests . waste  |
+                                        +--------------+-----------------+
+        +------------------------------+              |
+        |  Models (nightly pipeline)    |<-------------+
+        |  1 expiry risk (XGBoost)      |              |
+        |  2 demand forecast (HW / TSB) |--------------+
+        |  3 matching (heuristic + LP)  |              |
+        +------------------------------+               |
+        +------------------------------+               |
+        |  FastAPI backend . Streamlit  |<-------------+
+        |  app (pharmacist portal)      |--------------+  (log stock, accept/decline)
+        +------------------------------+
+        +------------------------------+
+        |  Monte Carlo evaluation       |  waste-reduction curve, break-even
+        +------------------------------+
 ```
 
-### 1d. Drop in your cleaned data
-Copy these three files (from the cleaning step) into the `data/` folder:
-- `survey_clean.xlsx`
-- `drugs_long.xlsx`
-- `expired_long.xlsx`
-
-### 1e. Test the database connection
-```powershell
-python -m src.db
-# expect:  Database reachable: True
-```
+Three layers: a **storage layer** (a single PostgreSQL database, the source of truth
+for every component), a **processing layer** (the data pipeline, the three models,
+and the FastAPI backend), and a **user layer** (the Streamlit pharmacist app and a
+Power BI dashboard that reads the same database).
 
 ---
 
-## 2. Create the database schema
-Creates the 7 core tables + coordination tables. Safe to re-run (it drops & recreates).
-```powershell
-psql -U postgres -d pharma_redist -f db/schema.sql
-```
-Expect no errors. Verify in psql: `\dt` lists 11 tables.
+## The three models
+
+| Model | Method | Why this method | Output table |
+|---|---|---|---|
+| **1 — Expiry risk** | XGBoost (probability-calibrated), benchmarked against Logistic Regression and Random Forest under an identical protocol | Interpretable, calibrated probabilities and feature importances the matcher relies on; retained as the documented primary when within tolerance of the best AUC | `expiry_risk_scores` |
+| **2 — Demand forecast** | Holt-Winters for regular demand; TSB (Croston-family) for intermittent slow movers, routed automatically | Two-track routing handles both fast- and slow-moving stock; produces q10/q50/q90 quantiles, not just a point estimate | `demand_forecasts` |
+| **3 — Redistribution matching** | Demand-aware coordinated heuristic (urgency-ordered, shared-demand), benchmarked against a transshipment LP optimum | Transparent and real-time on modest hardware while capturing most of the achievable value; the LP quantifies the gap | `redistribution_recommendations` |
+
+**Model 1** learns from a leakage-safe, realised-outcome label: each batch's outcome
+is projected forward under simulated demand (calibrated to survey dispersion), so the
+label is not an algebraic function of the features. Performance is reported against an
+**oracle Bayes-optimal ceiling** to show the model recovers nearly all attainable
+signal rather than against a misleading 1.0.
+
+**Model 3** scores each candidate transfer on four weighted factors — source urgency,
+target need, geographic proximity, and value (weights 0.35 / 0.35 / 0.20 / 0.10) —
+keeping matches above a 0.65 threshold within a 20 km radius (K=10 nearest
+candidates). Distance uses the Haversine formula; a maps-API road-travel-time upgrade
+is noted for the pilot.
 
 ---
 
-## 3. Generate the calibrated network
-Reads your survey, keeps the 39 real pharmacies as anchors, and creates synthetic
-ones up to `N_PHARMACIES` (150), with daily sales and inventory batches.
-```powershell
-python -m src.generator
-```
-Expect a summary like: `pharmacies 150 | drugs ~40 | batches ~400 | sales_rows ~100k`.
-This is the foundation — everything else reads from these tables.
+## Repository layout
 
----
-
-## 4. Model 1 — expiry-risk classifier (XGBoost)
-Train, then score every current batch into `expiry_risk_scores`.
-```powershell
-python -m src.model1_expiry --train
-python -m src.model1_expiry --score
-```
-Training prints AUC-ROC, Recall (the primary metric), Precision, Brier score.
-Scoring prints tier counts (Low / Medium / High / Critical).
-
----
-
-## 5. Model 2 — probabilistic demand forecaster
-Holt-Winters for regular demand, TSB/Croston for intermittent (slow movers).
-Writes q10/q50/q90 over 7/14/30-day horizons into `demand_forecasts`.
-```powershell
-python -m src.model2_forecast --run
-```
-
----
-
-## 6. Model 3 — redistribution matching
-For every High/Critical batch, shortlists nearby pharmacies that need the drug,
-confirms they can sell it in time (Model 2 quantile), scores the transfer on the
-four weighted factors, and writes matches above the threshold into
-`redistribution_recommendations`.
-```powershell
-python -m src.model3_matching --run
-```
-
-> Steps 4–6 in one command (the "nightly run"):
-> ```powershell
-> python -m src.pipeline
-> ```
-
----
-
-## 7. The app
-### 7a. Streamlit pharmacist app (the demo UI)
-```powershell
-streamlit run app/streamlit_app.py
-```
-Opens in your browser. Pick a pharmacy in the sidebar, see its at-risk stock and
-the recommendations it can accept or decline.
-
-### 7b. FastAPI backend (optional, for integration/automation)
-```powershell
-uvicorn api.main:app --reload --port 8000
-```
-Interactive docs: http://127.0.0.1:8000/docs
-
----
-
-## 8. Evaluation (Objective V)
-Monte Carlo simulation; reports waste-reduction vs two baselines with 95% CIs.
-```powershell
-python -m src.evaluate --runs 200
-```
-
----
-
-## 9. Daily cycle, once it's running
-```powershell
-python -m src.pipeline          # refresh scores, forecasts, recommendations
-streamlit run app/streamlit_app.py
-```
-
----
-
-## Project layout
 ```
 pharma_redist/
-  config.py              settings (reads .env)
+  config.py                 settings, read from .env (network size, thresholds, sweeps)
   requirements.txt
-  .env.example           copy to .env
-  db/schema.sql          all tables
-  data/                  put cleaned survey xlsx here
-  models/                trained model saved here
+  .env.example              template - copy to .env and set DATABASE_URL
+  db/
+    schema.sql              core tables
+    migrate_marketplace.sql stock_requests, commission columns
+    migrate_expiry.sql      expired_stock registry, is_expired flag
+  data/                     cleaned survey inputs (survey_clean, drugs_long, expired_long)
+  models/                   trained Model 1 artifact (regenerated on --train)
   src/
-    db.py                DB connection helper
-    generator.py         calibrated hybrid data generator
-    features.py          leakage-safe feature engineering (Model 1)
-    model1_expiry.py     XGBoost expiry-risk classifier
-    model2_forecast.py   Holt-Winters + Croston/TSB forecaster
-    model3_matching.py   spatial multi-criteria + transshipment LP
-    pipeline.py          nightly orchestration
-    evaluate.py          Monte Carlo evaluation
-  api/main.py            FastAPI backend
-  app/streamlit_app.py   Streamlit pharmacist UI
+    db.py                   single SQLAlchemy engine, reused everywhere
+    generator.py            calibrated hybrid data generator (real anchors + synthetic)
+    seasonal.py             shared category x month seasonal index (generator + features)
+    nafdac.py               optional NAFDAC catalogue validation (no-op if absent)
+    features.py             leakage-safe, survey-anchored feature + label engineering
+    model1_expiry.py        expiry-risk classifier + benchmarks + oracle ceiling
+    model2_forecast.py      demand forecaster (+ --backtest accuracy)
+    model3_matching.py      redistribution matcher (+ --gap optimality)
+    requests_match.py       pull-side matching for posted stock requests
+    pipeline.py             nightly orchestration of the models
+    evaluate.py             Monte Carlo evaluation (waste-reduction curve)
+    expiry.py               sweep newly-expired stock into the waste registry
+    auth.py                 login / pharmacy identity
+    emailer.py              notification emails
+    dashboard.py            in-app dashboard helpers
+  api/main.py               FastAPI backend
+  app/streamlit_app.py      Streamlit pharmacist portal
+  chapter4_stats.py         one-shot operational snapshot for the results chapter
 ```
 
-## Mapping to the thesis
-| Chapter 3 | Code |
+---
+
+## The database
+
+A single PostgreSQL database is the source of truth for every component. Core tables
+include `pharmacies`, `drugs`, `inventory_batches`, `sales_daily`,
+`expiry_risk_scores`, `demand_forecasts`, `redistribution_recommendations`,
+`transfers`, `stock_requests`, `expired_stock`, and supporting tables for users and
+notifications. The schema plus migrations define roughly a dozen interconnected
+tables with foreign-key constraints.
+
+Pharmacist-logged stock is written with `is_synthetic = FALSE`, keeping real
+user-entered inventory distinguishable from the generated network throughout.
+
+---
+
+## Configuration
+
+All settings live in `config.py` and are overridable via `.env`. Key ones:
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `DATABASE_URL` | - | PostgreSQL connection (local or cloud; the only thing to change to move to Neon) |
+| `N_PHARMACIES` | 150 | Total network size (39 real anchors + synthetic) |
+| `SIM_DAYS` | 365 | Length of the simulated sales history |
+| `MATCH_THRESHOLD` | 0.65 | Minimum match score to recommend a transfer |
+| `MAX_DISTANCE_KM` | 20 | Maximum transfer radius |
+| `K_NEAREST` | 10 | Candidate targets considered per at-risk batch |
+| `SERVICE_LEVEL` | 0.8 | Forecast quantile used to confirm the receiver can sell in time |
+| `ACCEPTANCE_SWEEP` / `B1_CLEAR_SWEEP` | - | Ranges swept in the evaluation |
+
+Moving from local Postgres to a cloud database (Neon, Supabase) requires **only**
+changing `DATABASE_URL` - no code changes.
+
+---
+
+## Command reference
+
+Run from the project root with the virtual environment active. Each command reads and
+writes the database at `DATABASE_URL`.
+
+| Command | Purpose |
 |---|---|
-| 3.1.5 Calibrated synthetic generation | `src/generator.py` |
-| 3.1.6 Database design | `db/schema.sql` |
-| 3.1.7 Feature engineering | `src/features.py` |
-| 3.2 Expiry-risk classifier | `src/model1_expiry.py` |
-| 3.3.1 Demand forecasting | `src/model2_forecast.py` |
-| 3.3.2 Spatial multi-criteria + transshipment | `src/model3_matching.py` |
-| 3.4 Platform | `api/main.py`, `app/streamlit_app.py` |
-| 3.5 Evaluation | `src/evaluate.py` |
+| `python -m src.db` | Check database connectivity |
+| `python -m src.generator` | Build the calibrated 150-pharmacy network |
+| `python -m src.model1_expiry --train` | Train Model 1; prints the LR / RF / XGBoost / oracle benchmark |
+| `python -m src.model1_expiry --score` | Score every live batch into risk tiers |
+| `python -m src.model2_forecast --run` | Write demand forecasts |
+| `python -m src.model2_forecast --backtest` | Report forecast accuracy (MASE, WAPE, pinball, coverage) |
+| `python -m src.model3_matching --run` | Generate redistribution recommendations |
+| `python -m src.model3_matching --gap` | Report heuristic-vs-LP optimality gap |
+| `python -m src.pipeline` | Run the full nightly cycle (expiry sweep -> score -> forecast -> match -> notify) |
+| `python -m src.evaluate --runs 200 --curve` | Monte Carlo evaluation: waste-reduction curve, break-even, sensitivity |
+| `python chapter4_stats.py` | Print the operational snapshot for the results chapter |
+| `streamlit run app/streamlit_app.py` | Launch the pharmacist app |
+| `uvicorn api.main:app --reload --port 8000` | Launch the FastAPI backend (docs at /docs) |
 
-## Troubleshooting
-- **`Database reachable: False`** — Postgres service not running, or wrong password
-  in `.env`. Check Services → "postgresql" is started.
-- **`relation ... does not exist`** — run Step 2 (schema) before the generator.
-- **Only one class in labels (Model 1)** — increase `SIM_DAYS` in `.env` and
-  regenerate, so more batches reach expiry and create both classes.
-- **No recommendations** — make sure Steps 4–6 all ran today (scores/forecasts are
-  dated `CURRENT_DATE`); re-run `python -m src.pipeline`.
-- **psql not recognised** — add `C:\Program Files\PostgreSQL\16\bin` to PATH, or run
-  the SQL from pgAdmin's Query Tool instead.
+The Streamlit app lets a pharmacy **log newly received stock**, view its at-risk
+batches, offer surplus, post and fulfil requests, and accept or decline transfers -
+all writing live to the database.
 
-## Notes on honesty (carry into the thesis)
-- This runs on the **calibrated synthetic** network; results are projections, not
-  field outcomes. The real survey rows are anchors (hybrid corpus).
-- Distance uses **Haversine** here; swap in a maps-API road travel time for the pilot
-  (see the note in `src/model3_matching.py`).
-- Acceptance in the evaluation is a **survey-anchored assumption**, varied via
-  `--acceptance`; it is not a measured rate.
+For first-time setup (installing PostgreSQL, creating the environment, loading the
+schema and data), see **SETUP.md**.
+
+---
+
+## Data & honesty
+
+- The network is a **hybrid corpus**: 39 real surveyed pharmacies as anchors, plus
+  synthetic pharmacies, sales, and inventory generated to match the survey's observed
+  demand levels, expiry rates, and willingness parameters.
+- The survey collected average weekly demand, expiry incidence, and willingness - not
+  daily sales or batch-level inventory (most pharmacies keep no digital daily records).
+  The daily series and current stock are therefore **simulated, calibrated to survey
+  evidence**, not collected field data.
+- Model-label uncertainty parameters are **anchored to measured survey dispersion**,
+  so results are discovered from evidence-based assumptions rather than tuned.
+- Evaluation acceptance is a **survey-anchored assumption**, reported across a curve
+  (with a break-even point), not as a measured adoption rate.
+- **In-app transfer activity demonstrates that the platform functions** (a functional
+  demonstration); **quantified impact comes only from the Monte Carlo evaluation.**
+  The two are kept distinct throughout.
+
+Reported impact figures are projections under empirically-informed conditions and are
+not a substitute for large-scale real-world validation, which is the framework's
+intended next step.
+
+---
+
+## Thesis mapping
+
+| Chapter 3 section | Implementation |
+|---|---|
+| Calibrated synthetic generation | `src/generator.py`, `src/seasonal.py`, `src/nafdac.py` |
+| Data management | `db/schema.sql` and migrations |
+| Feature engineering & labelling | `src/features.py` |
+| Expiry-risk classifier | `src/model1_expiry.py` |
+| Demand forecasting | `src/model2_forecast.py` |
+| Redistribution matching | `src/model3_matching.py`, `src/requests_match.py` |
+| Platform | `api/main.py`, `app/streamlit_app.py` |
+| Evaluation | `src/evaluate.py` |
