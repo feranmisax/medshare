@@ -5,7 +5,12 @@ Login (PCN + password) -> each pharmacy sees ONLY its own data. Admin can view a
 Flow: surplus/request -> source OFFERS -> target ACCEPTS -> transfer + platform commission.
 
 Run:  streamlit run app/streamlit_app.py
+
+Demo credentials hint on the login screen is hidden by default. To show it (e.g. for a
+supervised demo), start the app with the environment variable MEDSHARE_DEMO=1, e.g.:
+    MEDSHARE_DEMO=1 streamlit run app/streamlit_app.py
 """
+import os
 import sys
 from pathlib import Path
 sys.path.append(str(Path(__file__).resolve().parent.parent))
@@ -141,7 +146,10 @@ if st.session_state.auth is None:
                     st.rerun()
                 else:
                     st.error("Invalid PCN or password.")
-        st.caption("Demo: username = your pharmacy ID (e.g. PH001), password = medshare. Management: admin / admin123.")
+        # Demo credentials are shown only when explicitly enabled (MEDSHARE_DEMO=1),
+        # so they are never visible to real users in normal operation.
+        if os.getenv("MEDSHARE_DEMO") == "1":
+            st.caption("Demo: username = your pharmacy ID (e.g. PH001), password = medshare. Management: admin / admin123.")
     st.stop()
 
 USER = st.session_state.auth

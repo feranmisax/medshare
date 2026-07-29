@@ -1,0 +1,20 @@
+feature,importance
+inventory_weeks_remaining,0.18648398
+stock_to_sales_ratio,0.18461357
+historical_expiry_rate,0.07164437
+pharmacy_type_Independent,0.057051215
+stock_level,0.05568425
+pharmacy_type_Large chain,0.054516736
+sales_rate,0.05212338
+pharmacy_type_Hospital/Clinic,0.05044062
+seasonal_index,0.050063808
+drug_category_Antacids/GI,0.048106626
+drug_category_Vitamins/Supplements,0.04501846
+drug_category_Antibiotics,0.042776387
+drug_category_Antidiabetics,0.039536975
+drug_category_Antihypertensives,0.031241184
+drug_category_Antimalarials,0.030698493
+pharmacy_type_Small chain,0.0
+drug_category_Cough/Cold,0.0
+days_to_expiry,0.0
+drug_category_Analgesics,0.0

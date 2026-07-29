@@ -1,0 +1,5 @@
+model,auc
+LogisticRegression,0.8706
+RandomForest,0.8553
+XGBoost,0.862
+Oracle,0.8745
