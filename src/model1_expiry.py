@@ -6,8 +6,6 @@ a calibrated risk score + tier for every current batch into expiry_risk_scores.
 A rule-based override sets tier = 'Critical' when days_to_expiry <= CRITICAL_DAYS
 and there is surplus.
 
-Train:  python -m src.model1_expiry --train
-Score:  python -m src.model1_expiry --score
 """
 import sys, argparse, joblib
 from pathlib import Path

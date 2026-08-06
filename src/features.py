@@ -24,7 +24,7 @@ is stochastic (day-to-day noise, intermittency, seasonality), the label is not a
 algebraic re-encoding of the features: the model must learn the probabilistic
 relationship between decision-time features and an uncertain future outcome.
 
-Run (for a quick look):  python -m src.features
+
 """
 import sys
 from pathlib import Path

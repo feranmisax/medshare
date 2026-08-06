@@ -8,7 +8,7 @@ Outputs predictive quantiles (q10/q50/q90) over 7/14/30-day horizons into
 demand_forecasts. The quantiles feed the chance constraint in Model 3 and the
 "can the receiver sell it in time?" check.
 
-Run:  python -m src.model2_forecast --run
+
 """
 import sys, argparse
 from pathlib import Path

@@ -2,17 +2,7 @@
 Email helper — sends a PDF report to a pharmacy via SMTP.
 
 Credentials are read from environment variables (used by the scheduled GitHub
-Action) OR Streamlit secrets (used by the in-app button). Set these:
-
-    SMTP_HOST      e.g. smtp.gmail.com
-    SMTP_PORT      e.g. 587
-    SMTP_USER      the sending account / username
-    SMTP_PASSWORD  app password or API key
-    SMTP_FROM      the From address shown to recipients (optional; defaults to SMTP_USER)
-
-For Gmail, create an App Password (Google Account -> Security -> App passwords)
-and use that as SMTP_PASSWORD; SMTP_HOST=smtp.gmail.com, SMTP_PORT=587.
-For SendGrid, SMTP_HOST=smtp.sendgrid.net, SMTP_USER="apikey", SMTP_PASSWORD=<your key>.
+Action) OR Streamlit secrets (used by the in-app button). 
 """
 import os
 import smtplib

@@ -1,8 +1,6 @@
 """
 One-shot cloud database initialiser.
 
-Point DATABASE_URL at your cloud Postgres (in .env or as a shell variable),
-then run:  python cloud_setup.py
 
 It applies schema.sql + both migrations, generates the data, seeds logins,
 and runs the pipeline — leaving the cloud database fully populated.

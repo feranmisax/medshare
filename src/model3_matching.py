@@ -6,7 +6,7 @@ need the drug (Model 2 forecast), score the transfer on four weighted criteria
 (source urgency, target urgency, geographic feasibility, financial value), and write
 matches above MATCH_THRESHOLD as recommendations with origin='SURPLUS', status 'RECOMMENDED'.
 
-Run:  python -m src.model3_matching --run
+
 """
 import sys, argparse, math
 from pathlib import Path

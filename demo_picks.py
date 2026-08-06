@@ -1,3 +1,6 @@
+"""To determine what Pharmacies to use for live demo."""
+
+
 from src import db
 
 print("=== Most active pharmacies ===")

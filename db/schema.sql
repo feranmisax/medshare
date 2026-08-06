@@ -1,7 +1,6 @@
 -- ============================================================
 -- Inter-Pharmacy Redistribution — database schema
--- Run once:  psql -U postgres -d pharma_redist -f db/schema.sql
--- Safe to re-run: drops and recreates everything.
+
 -- ============================================================
 
 DROP TABLE IF EXISTS notifications        CASCADE;

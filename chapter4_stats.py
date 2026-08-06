@@ -5,7 +5,7 @@ Prints every operational figure the results chapter needs, read straight from
 whatever database DATABASE_URL points at (set $env:DATABASE_URL to Neon first,
 so these match Power BI and the live demo).
 
-Run:  python chapter4_stats.py
+
 """
 import sys
 # Force UTF-8 stdout so the Naira sign renders when redirected to a file on

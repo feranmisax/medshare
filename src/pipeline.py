@@ -3,7 +3,7 @@ Nightly pipeline: score risk, forecast demand, then run BOTH matching directions
 (surplus-driven push + request-driven pull), and notify the source pharmacies that
 they have a recommendation to act on (offer).
 
-Run:  python -m src.pipeline
+
 """
 import sys
 from pathlib import Path

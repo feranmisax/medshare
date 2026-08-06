@@ -2,10 +2,7 @@
 Drop ALL application tables in whatever database DATABASE_URL points at,
 so the next `python cloud_setup.py` (or generator+pipeline) rebuilds cleanly.
 
-USAGE (be deliberate — this deletes data):
-    python reset_db.py
 
-Works for local or cloud depending on your current DATABASE_URL / .env.
 """
 import sys
 from pathlib import Path

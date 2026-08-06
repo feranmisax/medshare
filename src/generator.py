@@ -8,7 +8,7 @@ The 39 REAL survey pharmacies are kept as anchors; the remaining pharmacies are
 synthetic, drawn to match the survey's marginals (type mix, category mix,
 demand levels, prices, expiry propensity, willingness, geography).
 
-Run:  python -m src.generator
+
 """
 import sys, math, re
 from pathlib import Path

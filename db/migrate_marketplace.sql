@@ -1,7 +1,6 @@
 -- ============================================================
 -- Marketplace upgrade — ADDITIVE migration (keeps existing data)
--- Run once:  psql -U postgres -d pharma_redist -f db/migrate_marketplace.sql
--- Safe to re-run.
+
 -- ============================================================
 
 -- 1. Roles for users (pharmacy operator vs management/admin)

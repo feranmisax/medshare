@@ -7,10 +7,7 @@ criteria, and auto-suggest the best one as a recommendation (origin='REQUEST',
 status 'RECOMMENDED', source = holder, target = requester). The holder then confirms
 (offers) it in the app, completing the auto-suggest -> confirm flow.
 
-  run()              -> match ALL open requests (used by the pipeline)
-  match_one(req_id)  -> match a SINGLE request instantly (used by the app on posting)
 
-Run:  python -m src.requests_match --run
 """
 import sys, argparse
 from pathlib import Path

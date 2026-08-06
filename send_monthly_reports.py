@@ -2,8 +2,7 @@
 send_monthly_reports.py — emails the dashboard PDF to every pharmacy that has an
 email on file. Intended to run on a schedule (see .github/workflows/monthly_reports.yml).
 
-Reads DATABASE_URL and SMTP_* from environment variables. Run manually with:
-    python send_monthly_reports.py
+Reads DATABASE_URL and SMTP_* from environment variables. 
 """
 import sys
 from pathlib import Path

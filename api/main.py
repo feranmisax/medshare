@@ -1,8 +1,6 @@
 """
 FastAPI backend. Wraps the data + models + transfer workflow as a small API.
 
-Run:  uvicorn api.main:app --reload --port 8000
-Docs: http://127.0.0.1:8000/docs
 """
 import sys
 from pathlib import Path

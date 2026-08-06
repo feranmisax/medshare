@@ -1,7 +1,6 @@
 // ============================================================
 // Inter-Pharmacy Redistribution — database schema (DBML)
-// Paste this whole file into https://dbdiagram.io  (new diagram).
-// Then drag the boxes into a tidy layout and Export > PNG/PDF.
+
 //
 // Colour key (header colours):
 //   BLUE   = dimension tables (descriptive: who / what)

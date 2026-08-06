@@ -4,11 +4,6 @@ MedShare — multi-tenant pharmacy redistribution marketplace.
 Login (PCN + password) -> each pharmacy sees ONLY its own data. Admin can view any.
 Flow: surplus/request -> source OFFERS -> target ACCEPTS -> transfer + platform commission.
 
-Run:  streamlit run app/streamlit_app.py
-
-Demo credentials hint on the login screen is hidden by default. To show it (e.g. for a
-supervised demo), start the app with the environment variable MEDSHARE_DEMO=1, e.g.:
-    MEDSHARE_DEMO=1 streamlit run app/streamlit_app.py
 """
 import os
 import sys

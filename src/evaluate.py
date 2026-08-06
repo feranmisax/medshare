@@ -11,12 +11,6 @@ Reports (Chapter 3, §3.5.3-3.5.4):
   * the BREAK-EVEN acceptance rate (where the system first beats B1 meaningfully),
   * a sensitivity sweep over the B1 informal-clearance fraction.
 
-Variance reduction: COMMON RANDOM NUMBERS — the same per-run seed drives demand
-for B0, B1, and the system, so the paired comparison isolates the redistribution
-effect rather than demand noise.
-
-Run:  python -m src.evaluate --runs 200
-      python -m src.evaluate --runs 200 --curve
 """
 import sys, argparse
 from pathlib import Path

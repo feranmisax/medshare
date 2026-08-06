@@ -7,7 +7,6 @@ A batch is 'expired' when its expiry_date is on or before today. The sweep:
      at-risk views, and all matching,
   3. withdraws any open recommendations/offers for that batch (and notifies).
 
-Run:  python -m src.expiry --run
 Called automatically by the pipeline.
 """
 import sys, argparse
@@ -61,6 +60,10 @@ def run():
                       WHERE batch_id=:b AND status IN ('RECOMMENDED','OFFERED')""", {"b": bid})
         # 3. take it out of circulation
         db.run_sql("UPDATE inventory_batches SET is_expired=TRUE, quantity=0 WHERE batch_id=:b", {"b": bid})
+        # 4. drop any risk scores for this batch — once expired it is no longer a
+        #    prediction. (The DB trigger also enforces this; kept here so the sweep
+        #    is correct even on a database where the trigger has not been applied.)
+        db.run_sql("DELETE FROM expiry_risk_scores WHERE batch_id=:b", {"b": bid})
         n += 1
 
     total = db.read_sql("SELECT COALESCE(SUM(value_lost),0) v FROM expired_stock").iloc[0]["v"]

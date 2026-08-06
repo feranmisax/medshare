@@ -1,9 +1,5 @@
 """
 export_figures_data.py — one-shot export of the data behind the Chapter 4
-analytical figures. Run against the SAME database your results came from
-(set DATABASE_URL to Neon first, so the figures match the thesis numbers):
-
-    python export_figures_data.py
 
 Writes CSVs into ./figure_data/ :
     roc_points.csv          FPR/TPR for LR, RF, XGBoost, Oracle  (ROC + ceiling)
@@ -14,8 +10,7 @@ Writes CSVs into ./figure_data/ :
     test_predictions.csv    per-batch y_true + predicted prob (for any custom plot)
     forecast_actual.csv     forecast q10/q50/q90 vs actual for sample series (overlay)
 
-Upload the whole figure_data/ folder (or zip it) and the figures get built from it.
-Nothing here retrains your saved model or changes the database — it only reads.
+
 """
 import sys
 from pathlib import Path
