@@ -55,9 +55,9 @@ Power BI dashboard that reads the same database).
 
 | Model | Method | Why this method | Output table |
 |---|---|---|---|
-| **1 — Expiry risk** | XGBoost (probability-calibrated), benchmarked against Logistic Regression and Random Forest under an identical protocol | Interpretable, calibrated probabilities and feature importances the matcher relies on; retained as the documented primary when within tolerance of the best AUC | `expiry_risk_scores` |
-| **2 — Demand forecast** | Holt-Winters for regular demand; TSB (Croston-family) for intermittent slow movers, routed automatically | Two-track routing handles both fast- and slow-moving stock; produces q10/q50/q90 quantiles, not just a point estimate | `demand_forecasts` |
-| **3 — Redistribution matching** | Demand-aware coordinated heuristic (urgency-ordered, shared-demand), benchmarked against a transshipment LP optimum | Transparent and real-time on modest hardware while capturing most of the achievable value; the LP quantifies the gap | `redistribution_recommendations` |
+| **1. Expiry risk** | XGBoost (probability-calibrated), benchmarked against Logistic Regression and Random Forest under an identical protocol | Interpretable, calibrated probabilities and feature importances the matcher relies on; retained as the documented primary when within tolerance of the best AUC | `expiry_risk_scores` |
+| **2. Demand forecast** | Holt-Winters for regular demand; TSB (Croston-family) for intermittent slow movers, routed automatically | Two-track routing handles both fast- and slow-moving stock; produces q10/q50/q90 quantiles, not just a point estimate | `demand_forecasts` |
+| **3. Redistribution matching** | Demand-aware coordinated heuristic (urgency-ordered, shared-demand), benchmarked against a transshipment LP optimum | Transparent and real-time on modest hardware while capturing most of the achievable value; the LP quantifies the gap | `redistribution_recommendations` |
 
 **Model 1** learns from a leakage-safe, realised-outcome label: each batch's outcome
 is projected forward under simulated demand (calibrated to survey dispersion), so the
